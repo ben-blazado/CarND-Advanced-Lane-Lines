@@ -15,6 +15,11 @@ class Enhancer:
     - enhance: combine Sobel_x gradient and s_channel thresholding
     '''
     
+    def __init__(self):
+        self.logger = logging.getLogger("Enhancer")
+        
+        return
+    
     def SobelX(self, img, t_min=20, t_max=255):
         '''
         Detects edges by measuring gradients along x axis.
@@ -27,6 +32,9 @@ class Enhancer:
         - mask: a binary image highlighting where edges were detected
         '''
         
+        msg = "SobelX thresholds {}, {}."
+        self.logger.debug(msg.format(t_min, t_max))
+        
         gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
         sobel = np.absolute(cv2.Sobel(gray, cv2.CV_64F, dx=1, dy=0))
         sobel_scaled = np.uint8(255 * sobel / np.max(sobel))
@@ -37,8 +45,38 @@ class Enhancer:
         mask[(t_min <= sobel_scaled) & (sobel_scaled <= t_max)] = 1
         
         return mask
-    
-    def SChannel (self, img, t_min=96, t_max=255):
+        
+    def HChannel (self, img, t_min=30, t_max=40):
+            '''
+            Detects pixels meeting h_channel thresholds tuned to yellow.
+            
+            Params:
+            - img: an RGB image of road to enhance
+            - t_min, t_max: thresholds for h_channel_channel detection; default threshold values
+            were manually chosen for enhancing yellow and white pixels of road lanes
+            
+            Returns:
+            - mask: a binary image highlighting where pixels met the s_channel threshold 
+            for yellow and white colors
+            '''
+            msg = "HChannel thresholds {}, {}."
+            self.logger.debug(msg.format(t_min, t_max))
+            
+            hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
+            
+            #--- extract the s_channel frol hls
+            h_channel = hls[:,:,0]
+            
+            mask = np.zeros_like(h_channel)
+            
+            #--- activate all pixels that meet the s-channel threshold
+            mask[(t_min <= h_channel) & (h_channel <= t_max)] = 1
+            
+            return mask
+        
+                
+        
+    def SChannel (self, img, t_min=50, t_max=255):
         '''
         Detects pixels meeting s_channel thresholds.
         
@@ -52,9 +90,12 @@ class Enhancer:
         for yellow and white colors
         '''
         
+        msg = "SChannel thresholds {}, {}."
+        self.logger.debug(msg.format(t_min, t_max))
+        
         hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
         
-        #--- extract the s_channel frol hls
+        #--- extract the s_channel from hls
         s_channel = hls[:,:,2]
         
         mask = np.zeros_like(s_channel)
@@ -64,7 +105,7 @@ class Enhancer:
         
         return mask
     
-    def LChannel (self, img, t_min=200, t_max=255):
+    def LChannel (self, img, t_min=202, t_max=255):
         '''
         Detects pixels meeting s_channel thresholds.
         
@@ -101,12 +142,23 @@ class Enhancer:
         Returns:
         - a binary image resulting from bitwise "or" of sobel and s-channel masks
         '''
+
+        #-- mask for edges in shanow
+        l_mask_shadow   = self.LChannel(img, 16, 32)
+        sobel_mask       = self.SobelX (img, 8, 255)
+        mask_edge_shadow = l_mask_shadow & sobel_mask
         
-        sobel_mask     = self.SobelX (img)
-        s_channel_mask = self.SChannel(img)
-        l_channel_mask = self.LChannel(img)
+        #--- mask for yellow lanes
+        l_mask_yellow = self.LChannel(img, 100, 255)
+        s_mask_yellow = self.SChannel(img, 50, 255) 
+        mask_yellow = l_mask_yellow & s_mask_yellow
         
-        # return sobel_mask | s_channel_mask    
-    
-        return s_channel_mask | l_channel_mask
+        #--- white lane mask
+        mask_white = self.LChannel(img)
+        
+        return mask_edge_shadow | mask_yellow | mask_white
+        # return h_channel_mask  | l_channel_mask
+        # works:
+        # return sobel_mask | h_channel_mask  | l_channel_mask
+        
     

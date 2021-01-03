@@ -107,7 +107,7 @@ class Line:
             
         return
     
-    def smooth_new (self, N=3):
+    def smooth (self, N=3):
         '''
         Smooths the line by using the average of past coeefficients
         
@@ -186,7 +186,7 @@ class Line:
         return self.found
     
     
-    def smooth(self, N=3):
+    def smooth_good_version(self, N=3):
         '''
         Smooths the line by using the average of past coeefficients
         
