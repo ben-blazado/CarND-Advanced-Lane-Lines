@@ -69,9 +69,9 @@ class HUD:
                 off_str = "Roughly on centerline!"
             else:
                 if center_offset > 0:
-                    msg = "Center Offset: {:.0f} cm Right"
-                else:
                     msg = "Center Offset: {:.0f} cm Left"
+                else:
+                    msg = "Center Offset: {:.0f} cm Right"
                 off_str = msg.format (abs(center_offset * 100))
         
         cv2.putText(self.img_lane_area, off_str, (50, 100), self.font, self.scale, self.color, self.thickness)

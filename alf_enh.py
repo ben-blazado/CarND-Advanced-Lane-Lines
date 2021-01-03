@@ -150,15 +150,12 @@ class Enhancer:
         
         #--- mask for yellow lanes
         l_mask_yellow = self.LChannel(img, 100, 255)
-        s_mask_yellow = self.SChannel(img, 50, 255) 
+        s_mask_yellow = self.SChannel(img, 75, 255) 
         mask_yellow = l_mask_yellow & s_mask_yellow
         
         #--- white lane mask
-        mask_white = self.LChannel(img)
+        mask_white = self.LChannel(img, 202, 255)
         
+        # return mask_edge_shadow | mask_yellow | mask_white
         return mask_edge_shadow | mask_yellow | mask_white
-        # return h_channel_mask  | l_channel_mask
-        # works:
-        # return sobel_mask | h_channel_mask  | l_channel_mask
-        
     

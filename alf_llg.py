@@ -107,7 +107,7 @@ class Line:
             
         return
     
-    def smooth (self, N=3):
+    def smooth_dev (self, N=3):
         '''
         Smooths the line by using the average of past coeefficients
         
@@ -186,7 +186,7 @@ class Line:
         return self.found
     
     
-    def smooth_good_version(self, N=3):
+    def smooth(self, N=3):
         '''
         Smooths the line by using the average of past coeefficients
         
@@ -207,6 +207,8 @@ class Line:
         - see ref below for discussion of outlier
         - ref: https://docs.oracle.com/cd/E17236_01/epm.1112/cb_statistical/frameset.htm?ch07s02s10s01.html
         '''
+        
+        return self.found
         
         if self.prev_coeffs:
             
@@ -568,7 +570,7 @@ class LinearWindow:
     to start the search.
     '''
     
-    def __init__ (self, line, target_ht, image_points, x_offset=100):
+    def __init__ (self, line, target_ht, image_points, x_offset=25):
         '''
         Defines the boarders of the linear search area along line.
         
