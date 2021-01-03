@@ -157,5 +157,5 @@ class Enhancer:
         mask_white = self.LChannel(img, 202, 255)
         
         # return mask_edge_shadow | mask_yellow | mask_white
-        return mask_yellow | mask_white
+        return mask_edge_shadow | mask_yellow | mask_white
     
