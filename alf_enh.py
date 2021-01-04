@@ -19,6 +19,42 @@ class Enhancer:
         self.logger = logging.getLogger("Enhancer")
         
         return
+        
+    def preprocess(self, img):
+        
+        self.logger.debug("Preprocess()")
+        
+        hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
+        # hls[:, :, 1] = np.clip(hls[:,:,1] * 2, 0, 255)
+        
+        low_sat = hls[:,:,2] < 32   # saturation is lower (gray stuff)
+        hls[:,:,1][low_sat] = 0   #--- set lightness to 0 for lower saturated
+
+        lightness_gray = hls[:,:,1] < 100
+        hls[:,:,1][lightness_gray] = 0
+        
+        sat_high = hls[:,:,1] > 128
+        hls[:,:,2][sat_high] = 255
+
+        return cv2.cvtColor(hls, cv2.COLOR_HLS2RGB)
+        
+        
+    def preprocessWhite(self, img):
+        
+        self.logger.debug("Preprocess White()")
+        
+        hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
+        # hls[:, :, 1] = np.clip(hls[:,:,1] * 2, 0, 255)
+        
+        l_thresh = 195
+        low_l = hls[:,:,1] < l_thresh   # kinda gray to darker lightness
+        hls[:,:,1][low_l] = 0   #--- set lightness to 0 for lower saturated
+
+        hi_l = hls[:,:,1] > l_thresh
+        hls[:,:,1][hi_l] = 255
+        
+        return cv2.cvtColor(hls, cv2.COLOR_HLS2RGB)
+        
     
     def SobelX(self, img, t_min=20, t_max=255):
         '''
@@ -111,8 +147,9 @@ class Enhancer:
         
         Params:
         - img: an RGB image of road to enhance
-        - t_min, t_max: thresholds for s_channel detection; default threshold values
-        were manually chosen for enhancing yellow and white pixels of road lanes
+        - t_min, t_max: thresholds for s_channel detection; default 
+        threshold values were manually chosen for enhancing yellow and white 
+        pixels of road lanes
         
         Returns:
         - mask: a binary image highlighting where pixels met the s_channel threshold 
@@ -142,20 +179,30 @@ class Enhancer:
         Returns:
         - a binary image resulting from bitwise "or" of sobel and s-channel masks
         '''
-
+        
+        
         #-- mask for edges in shanow
-        l_mask_shadow   = self.LChannel(img, 16, 32)
-        sobel_mask       = self.SobelX (img, 8, 255)
+        pimg = self.preprocess(img)
+        # return pimg
+        
+        l_mask_shadow   = self.LChannel(pimg, 0, 32)
+        sobel_mask       = self.SobelX (pimg, 8, 255)
         mask_edge_shadow = l_mask_shadow & sobel_mask
+        # return mask_edge_shadow
         
         #--- mask for yellow lanes
-        l_mask_yellow = self.LChannel(img, 100, 255)
-        s_mask_yellow = self.SChannel(img, 75, 255) 
-        mask_yellow = l_mask_yellow & s_mask_yellow
+        s_mask_yellow = self.SChannel(pimg, 200, 255) 
+        mask_yellow = s_mask_yellow 
+        #l_mask_yellow = self.LChannel(pimg, 100, 255)
+        #s_mask_yellow = self.SChannel(pimg, 75, 255) 
+        #mask_yellow = s_mask_yellow & l_mask_yellow
         
         #--- white lane mask
-        mask_white = self.LChannel(img, 202, 255)
+        mask_white = self.LChannel(img, 187, 255)
+        # mask_white = self.LChannel(img, 180, 255)
+        # mask_white = self.LChannel(img, 202, 255)
         
         # return mask_edge_shadow | mask_yellow | mask_white
-        return mask_edge_shadow | mask_yellow | mask_white
+        return mask_yellow | mask_white
+        # return mask_edge_shadow & mask_yellow | mask_white
     

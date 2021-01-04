@@ -57,6 +57,9 @@ class TopDownWarperCalibrationSet:
             ax.plot(dst_points[i][0], dst_points[i][1], '.')
         return
         ax.imshow(self.img)
+        
+    def getSrcPoints(self):
+        return self.src_points
 
         
 class ImageWarper:
@@ -85,6 +88,8 @@ class ImageWarper:
         #--- set default calibration set to top-down perspective
         if calibration_set is None:
             calibration_set = TopDownWarperCalibrationSet()
+            
+        self.calibration_set = calibration_set
         
         #--- M: transformation matrix
         self.M = cv2.getPerspectiveTransform(calibration_set.src_points, 
@@ -110,7 +115,9 @@ class ImageWarper:
         - Undistort img with an camera instance before warping
         '''
         
-        img_warped = cv2.warpPerspective(img, self.M, (img.shape[1], img.shape[0]), flags=cv2.INTER_LINEAR)
+        img_warped = cv2.warpPerspective(img, self.M, 
+                                        (img.shape[1], img.shape[0]), 
+                                        flags=cv2.INTER_LINEAR)
         
         return img_warped
     
@@ -119,3 +126,4 @@ class ImageWarper:
         img_unwarped = cv2.warpPerspective(img, self.invM, (img.shape[1], img.shape[0]), flags=cv2.INTER_LINEAR)
         
         return img_unwarped
+        

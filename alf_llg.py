@@ -28,14 +28,12 @@ class Line:
         self.logger = logging.getLogger("Line " + str(id(self))[-4:])
 
         #--- coefficients of line where x = ay**2 + by + c
-        self.a = None
-        self.b = None
-        self.c = None
+        #--- coeffs[0] = a; coeffs[1] = b; coeffs[2] = c
+        self.coeffs = None
         
         #--- list of coefficients of previously found lines
-        self.prev_coeffs = []        #--- [[a1, b2, c1], [a2, b2, c2], ...]
-        self.max_coeffs = 30    #--- max coeffs to keep before popping oldest coeff
-
+        self.prev_coeffs = []    #--- [[a1, b2, c1], [a2, b2, c2], ...]
+        self.max_coeffs  = 12    #--- max coeffs to keep before popping oldest 
 
         #--- True if polyfit() solved for line coefficients
         #--- check this variable first before using Line
@@ -48,30 +46,37 @@ class Line:
 
         #--- pts() method combines x and y to form [[x1, y1], [x2, y2], ...]
         #--- used in draw functions
-        self.pts = None    
+        self.pts = None
+        
+        self.logger.debug("Initialized.")
 
         return
         
     def fit(self, x_points, y_points, polyfit_tries=3):
         '''
-        Sets the coefficients of the line through polyfit.
+        Finds the coefficients of the line given a set of x and y points.
         
         Params:
         - x, y: coordinates of points to fit line
-        - real_world: bool. true if trying to fit real world coordinates from image space; used to 
-        support calculating radius of curvature in radius(); we should not have to use this since 
+        - real_world: bool. true if trying to fit real world coordinates from 
+        image space; used to support calculating radius of curvature in 
+        radius(); we should not have to use this since 
         we will try to use the scaling algorithm in "Measuring Curvature II"
         for the coefficients in call to radius()
         - polyfit_tries: number of attempts to polyfit before continuing
         
         Notes:
-        - Makes up to default 10 attempts with error checking for a successful fit.
+        - Makes up to a default polyfit_tries(3) attempts with error checking 
+        for a successful fit.
         - Coefficients are set to none if no line found
-        - Needed to use error handling for calls to polyfit; would cause "SVD did not 
-        converge" error in jupyter notebook every other run; polyfit will likely succeed on second try
-        - Discussion of SVD error: https://github.com/numpy/numpy/issues/16744 says its due to windows
+        - Needed to use error handling for calls to polyfit; would cause 
+        "SVD did not converge" error in jupyter notebook every other run; 
+        polyfit will likely succeed on second try
+        - Discussion of SVD error: https://github.com/numpy/numpy/issues/16744 
+        says its due to windows
         '''
         
+        self.logger.debug("fit()")
         self.pts = None    
         self.x = None
         self.y = None    #--- should be [0 to (height of image - 1)]
@@ -82,95 +87,94 @@ class Line:
             tries += 1
             try:
                 #--- we solve for X!!! i.e. x = ay**2 + by + c
-                fit = np.polyfit(y_points, x_points, deg=2)
+                coeffs = np.polyfit(y_points, x_points, deg=2)
                 if tries > 1:
                     msg = "Polyfit succeeded on try {}."
-                    self.logger.warning(msg.format(tries))
+                    self.logger.debug(msg.format(tries))
                 self.found = True
             
             except Exception as e:
                 if tries < polyfit_tries:
                     msg = "Polyfit failed: {}. Trying again."
-                    self.logger.warning(msg.format(e))
+                    self.logger.debug(msg.format(e))
                 else:
                     msg = "Polyfit failed to fit a line. {}."
-                    self.logger.warning(msg.format(e))
+                    self.logger.debug(msg.format(e))
                     
         if self.found:
-            self.a = fit[0]    # coeff for y**2
-            self.b = fit[1]    # coeff for y
-            self.c = fit[2]    # constant
+            self.coeffs = coeffs
         else:
-            self.a = None
-            self.b = None
-            self.c = None
+            self.coeffs = None
             
         return
     
-    def smooth_dev (self, N=3):
+    def smooth (self, N=3, min_size=10):
         '''
         Smooths the line by using the average of past coeefficients
         
         Params:
-        - N: number of standard deviations from mean coeff value to start smoothing
+        - N: number of standard deviations from mean coeff value to start
+        smoothing
+        - min_size: number of previous lines to begin sampling
         
         Returns:
-        - self.found: True if a line was found previously in fit and was a good line, or if 
-        fit did not find a line by smooth was able to use the average of past coeffs to define 
-        a line
+        - self.found: True if a line was found previously in fit and was a 
+        good line, or if fit did not find a line by smooth was able to use 
+        the average of past coeffs to define a line
         
         Notes:
         - Call after fit!
-        - if fit() did not find a line, smooth() can set coeffs to average of coeffs for line!
-        thus, finding a line, though it's an average of previous
+        - if fit() did not find a line, smooth() can set coeffs to average of 
+        - coeffs for line! thus, finding a line, though it's an average of previous
         
         - Checks if x is within m std devs of the mean of values in arr
-        - see ref below for discussion of outlier
-        - ref: https://docs.oracle.com/cd/E17236_01/epm.1112/cb_statistical/frameset.htm?ch07s02s10s01.html
+        - ref for discussion of outlier: https://bit.ly/3pPo9d3
         '''
         
+        self.logger.debug("Smooth()")
         if self.prev_coeffs:
             
             avg_prev_coeffs = np.average(self.prev_coeffs, axis=0)
             
             if self.found:
                 
-                if len (avg_prev_coeffs) > 10:
-                    #--- see if coeff of line is within std devs of avg of previous lines 
+                if len (self.prev_coeffs) > min_size:
+                    #--- see if coeff of line is within std devs of avg 
+                    #--- of previous lines 
                     std_prev_coeffs = np.std(self.prev_coeffs, axis=0)
-                    in_range = abs(self.x - avg_prev_coeffs) < N*std_prev_coeffs
+                    in_range = (abs(self.coeffs - avg_prev_coeffs) 
+                                < N*std_prev_coeffs)
                 else:
-                    in_range = abs(self.x - avg_prev_coeffs) < 50
+                    in_range = [True]
 
-                if not all(in_range):
-                    #--- line is an outlier; smooth it as an average of previous lines
-                    self.x = avg_prev_coeffs
-                    
-                    # self.a, self.b, self.c = np.average (np.vstack((avg_prev_coeffs, np.array([self.a, self.b, self.c]))),                                                         axis = 0)
+                if all(in_range):
+                    self.logger.debug("Line fit seems ok.")
+                    self.coeffs = (avg_prev_coeffs + 9 * self.coeffs) / 10
+                    self.prev_coeffs.append(self.coeffs) 
+                    if len(self.prev_coeffs) > self.max_coeffs:
+                        #--- pop first to remove oldest line from list to 
+                        #--- prevent being include in average
+                        self.prev_coeffs.pop(0)
+                        msg = "Coeff buffer full:{}. Removed oldest line."
+                        self.logger.debug(msg.format(len(self.prev_coeffs)))
+                
                 else:
-                    msg = "Line is good! No need to average."
-                    self.logger.debug(msg)
-                    
-                self.prev_coeffs.append([self.a, self.b, self.c]) 
-
-                if len(self.prev_coeffs) > self.max_coeffs:
-                    #--- pop first to remove oldest line from list to prevent being include in average
+                    self.logger.debug("Line fit looks off; "
+                        + "will use average of previous.")
+                    self.coeffs = avg_prev_coeffs
+                    #--- set found to False since line was bad
+                    #--- remove oldest line; allows list of previous fits
+                    #--- to decay to nothing if consecutive bad lines are
+                    #--- are found
                     self.prev_coeffs.pop(0)
-                    msg = "Coeff buffer full. Removed oldest line. Buffer size: {}."
-                    self.logger.debug(msg.format(len(self.prev_coeffs)))
+                    return False
                     
             else:
-                #--- line not found, use average of previous coffecients now for the line
-                msg = "Line was not found! Using averages of old lines."
-                self.logger.debug(msg)
-                
-                self.a, self.b, self.c = avg_prev_coeffs                
-                
-                #--- pop first coeff in list to prevents using older coeffs again
-                #--- eventually, list decays to nothing if no lines are found
-                #--- forcing to not use old information
+                #--- line not found, use average of previous coffecients 
+                self.logger.debug("Line was not found! "
+                    + "Using average of old lines.")
+                self.coeffs = avg_prev_coeffs                
                 self.prev_coeffs.pop(0)
-                
                 #--- set found to True since we "found" a line 
                 #--- using the average of previous coeffs
                 self.found = True
@@ -178,96 +182,7 @@ class Line:
         elif self.found:
             #--- first coeff to add to list! 
             #--- don't smooth since there is nothing to smooth to
-            self.prev_coeffs.append([self.a, self.b, self.c]) 
-            
-        msg = "Number of old lines/coeffs: {}."
-        self.logger.debug(msg.format(len(self.prev_coeffs)))
-            
-        return self.found
-    
-    
-    def smooth(self, N=3):
-        '''
-        Smooths the line by using the average of past coeefficients
-        
-        Params:
-        - N: number of standard deviations from mean coeff value to start smoothing
-        
-        Returns:
-        - self.found: True if a line was found previously in fit and was a good line, or if 
-        fit did not find a line by smooth was able to use the average of past coeffs to define 
-        a line
-        
-        Notes:
-        - Call after fit!
-        - if fit() did not find a line, smooth() can set coeffs to average of coeffs for line!
-        thus, finding a line, though it's an average of previous
-        
-        - Checks if x is within m std devs of the mean of values in arr
-        - see ref below for discussion of outlier
-        - ref: https://docs.oracle.com/cd/E17236_01/epm.1112/cb_statistical/frameset.htm?ch07s02s10s01.html
-        '''
-        
-        return self.found
-        
-        if self.prev_coeffs:
-            
-            avg_prev_coeffs = np.average(self.prev_coeffs, axis=0)
-            
-            if self.found:
-                
-                #--- see if coeff of line is within std devs of avg of previous lines 
-                coeff = np.array([self.a, self.b, self.c])
-                std_prev_coeffs = np.std(self.prev_coeffs, axis=0)
-                in_range = abs(coeff - avg_prev_coeffs) < N*std_prev_coeffs
-
-                if not all(in_range):
-                    #--- line is an outlier; smooth it as an average of previous lines
-                    msg = "Line is an outlier! Using averages of old lines."
-                    self.logger.debug(msg)
-                    
-                    msg = "Curr coeffs {}, {}, {}"
-                    self.logger.debug(msg.format(self.a, self.b, self.c))
-
-                    msg = "Avg coeffs: {}, {}, {}"
-                    self.logger.debug(msg.format(avg_prev_coeffs[0], avg_prev_coeffs[1], avg_prev_coeffs[2]))
-                    
-                    self.a, self.b, self.c = np.average (
-                        np.vstack((avg_prev_coeffs, np.array([self.a, self.b, self.c]))),
-                        axis = 0
-                    )
-                else:
-                    msg = "Line is good! No need to average."
-                    self.logger.debug(msg)
-                    
-                self.prev_coeffs.append([self.a, self.b, self.c]) 
-
-                if len(self.prev_coeffs) > self.max_coeffs:
-                    #--- pop first to remove oldest line from list to prevent being include in average
-                    self.prev_coeffs.pop(0)
-                    msg = "Coeff buffer full. Removed oldest line. Buffer size: {}."
-                    self.logger.debug(msg.format(len(self.prev_coeffs)))
-                    
-            else:
-                #--- line not found, use average of previous coffecients now for the line
-                msg = "Line was not found! Using averages of old lines."
-                self.logger.debug(msg)
-                
-                self.a, self.b, self.c = avg_prev_coeffs                
-                
-                #--- pop first coeff in list to prevents using older coeffs again
-                #--- eventually, list decays to nothing if no lines are found
-                #--- forcing to not use old information
-                self.prev_coeffs.pop(0)
-                
-                #--- set found to True since we "found" a line 
-                #--- using the average of previous coeffs
-                self.found = True
-                
-        elif self.found:
-            #--- first coeff to add to list! 
-            #--- don't smooth since there is nothing to smooth to
-            self.prev_coeffs.append([self.a, self.b, self.c]) 
+            self.prev_coeffs.append(self.coeffs) 
             
         msg = "Number of old lines/coeffs: {}."
         self.logger.debug(msg.format(len(self.prev_coeffs)))
@@ -293,11 +208,13 @@ class Line:
 
         #--- Check if we have already generated lines for this height
         #--- if we havent, generate the points else skip and just reuse what we have already
-        #--- generate y points from 0 to img_ht - 1, cast to int32 for ease of plotting
+        #--- generate y points from 0 to img_ht, cast to int32 for ease of plotting
         self.y = np.int32 (np.array([y for y in range(img_ht)]))
 
+        #--- TODO: what if x < 0 or x > img wid 
         #--- calculate points based on x, cast to int32 for ease of plotting
-        self.x = np.int32 (self.a * self.y**2 + self.b * self.y + self.c)
+        self.x = np.int32 (self.coeffs[0] * self.y**2 + self.coeffs[1] * self.y 
+                    + self.coeffs[2])
 
         msg = "Generated points for ht {}."
         self.logger.debug(msg.format(img_ht))
@@ -329,10 +246,12 @@ class Line:
         Returns real world radius of curvature at y.
         
         Params:
-        - y: y-position in image space; this should be bottom of image; do not convert
-        to real world meters; conversion to real world coords is done in function
-        - real_world: bool. true if trying to fit real world coordinates from image space
-        - ym_per_pix: numer of meters per pixel along y axis; only used if real_world is True
+        - y: y-position in image space; this should be bottom of image; do not
+        convert to real world meters; conversion to real world coords is done 
+        in function
+        - real_world: bool. true if trying to fit real world coordinates from 
+        image space
+        - ym_per_pix: numer of meters per pixel along y axis;
         
         Returns: 
         - R: radius in pixels, or in meters if real_world is True; None if exception
@@ -340,10 +259,17 @@ class Line:
         Notes:
         - Call fit() before this function!
         - We use formula in the lesson Measuring Curvature II of Lesson 8:
-        "For example, if the parabola is x= a*(y**2) +b*y+c; and mx and my are the scale 
-        for the x and y axis, respectively (in meters/pixel); then the scaled parabola is 
+        "For example, if the parabola is x= a*(y**2) +b*y+c; and mx and my are 
+        the scale for the x and y axis, respectively (in meters/pixel); then 
+        the scaled parabola is:
+        
         x= mx / (my ** 2) *a*(y**2)+(mx/my)*b*y+c"; 
-        I thinks it's x= mx / (my ** 2) *a*(y**2)+(mx/my)*b*y+mx*c; anyway so:
+        
+        I thinks it's actually:
+
+        x= mx / (my ** 2) *a*(y**2)+(mx/my)*b*y+mx*c; 
+        
+        anyway, so to scale coeffs a and b to real:
            
            real_a = a * mx / my**2 
            
@@ -355,8 +281,8 @@ class Line:
             
         try:
             #--- rescale coeffs and y to real world
-            a = self.a * xm_per_pix / ym_per_pix**2
-            b = self.b * xm_per_pix / ym_per_pix
+            a = self.coeffs[0] * xm_per_pix / ym_per_pix**2
+            b = self.coeffs[1] * xm_per_pix / ym_per_pix
             y = y * ym_per_pix    # scale y to real-world!
             R = (1 + (2*a*y + b)**2)**(3/2) / abs(2*a)
             msg = "Radius of curvature: {}."
@@ -405,11 +331,9 @@ class Line:
             #--- combine and transform x_ and y_points to [[x1, y1], [x2, y2], ...]
             #--- vstack shape=(2, n), then after transpose shape=(n,2)
             self.pts = np.array([(np.transpose(np.vstack((self.x, self.y))))])
-            msg = "New pts calculated."
-            self.logger.debug(msg)
+            self.logger.debug("New pts calculated.")
         else:
-            msg = "Reusing pts."
-            self.logger.debug(msg)
+            self.logger.debug("Reusing pts.")
         return self.pts
         
     def paint(self, img):
@@ -439,13 +363,14 @@ class SlidingWindow:
     '''
     
     def __init__(self, x_mid, target_ht, image_points, 
-                 num_segments = 8, x_offset=100, numpoints_found_thresh = 50):
+                 num_segments = 8, x_offset=50, numpoints_found_thresh = 50):
 
         #--- x1 = x_mid - offset, x2 = x_mid + offset
         self.x_mid    = x_mid
         self.x_offset = x_offset
         self.x1       = x_mid - x_offset
         self.x2       = x_mid + x_offset
+        self.x_dir    = None    # used to move search area if low points found
         
         self.ht = target_ht // num_segments
         self.y2 = target_ht   #--- y2 is bottom of image
@@ -473,7 +398,7 @@ class SlidingWindow:
         return
     
     def reinit (self, x_mid, target_ht, image_points, 
-                 num_segments = 8, x_offset=100, numpoints_found_thresh = 50):
+                 num_segments = 8, x_offset=100, numpoints_found_thresh = 25):
         '''
         Reinitializes the variables to reuse the instace. Simply calls __init__.
         '''
@@ -522,7 +447,12 @@ class SlidingWindow:
             #--- update the midpoint if enough points found above threshold
             if len(points_found_x) >= self.numpoints_found_thresh:
                 #--- must be INT! or 
-                self.x_mid = np.int(np.average(points_found_x))
+                new_x_mid = np.int(np.average(points_found_x))
+                self.x_dir = new_x_mid - self.x_mid
+                self.x_mid = new_x_mid
+            elif len(points_found_x) < self.numpoints_found_thresh // 3 
+                    and self.x_dir is not None:
+                self.xmid += self.x_dir
                 
             self.slideUp()
         
@@ -570,7 +500,7 @@ class LinearWindow:
     to start the search.
     '''
     
-    def __init__ (self, line, target_ht, image_points, x_offset=25):
+    def __init__ (self, line, target_ht, image_points, x_offset=50):
         '''
         Defines the boarders of the linear search area along line.
         
@@ -678,13 +608,6 @@ class LaneLineFinder:
         #--- helps to select lane points search algorithm 
         self.use_linear_window  = False    #--- If true, use linear search window method, else use sliding
         
-        #--- holds buffer the coefficients of the last buffer_size lines
-        #--- used for averaging out lines and other metrics
-        self.buffer_size = buffer_size     #--- number of measurements to hold in each array
-        self.a = np.array([])
-        self.b = np.array([])
-        self.c = np.array([])
-        
         #--- points of the lane line in ([[x1, y1], [x2, y2], ...) format that is used in cv2 drawing functions
         self.paint_points = None
         
@@ -709,6 +632,8 @@ class LaneLineFinder:
         - image_points_x, image_points_y: the x and y coordinates of all the nonzero points of the image;
         the LaneFinder will search through these coordinates to find the points that are part of the lane
         '''
+        
+        self.logger.debug("findImagePoints()")
         
         nonzero_points = np.nonzero(self.binary_warped)
         
@@ -777,9 +702,11 @@ class LaneLineFinder:
         if self.use_linear_window:
             #--- use LinearWindow if lane lines were previously found
             self.lane_points_finder = self.getLinearWindow()
+            self.logger.debug("Selected linear window.")
         else:
             #--- use sliding window if lane lines were NOT previously found
             self.lane_points_finder = self.getSlidingWindow()
+            self.logger.debug("Selected sliding window.")
             
         return
     
@@ -788,23 +715,19 @@ class LaneLineFinder:
         Finds line representing lane of the road using appropriate lane line finder.
         '''
         
+        self.logger.debug("FindLaneLine()")
+        
         self.binary_warped = binary_warped
         
         self.findImagePoints()
         self.selectLanePointsFinder()
         
         x_lane_points, y_lane_points = self.lane_points_finder.findPoints()
-        
-        #--- TODO: test for x_lane_points, y_lane_points = None, None
-        
-        #--- fit the points of the lane onto a line
-        self.lane_line.fit(x_lane_points, y_lane_points)
 
-        #--- smooth out the line to reduce frame to frame jitter
-        #--- sets use_linear_window to True if smoothing was successful
-        self.use_linear_window = self.lane_line.smooth()
+        #--- TODO: whatif for x_lane_points, y_lane_points = None, None
         
-        #--- generate the points of the line along the image
+        self.lane_line.fit(x_lane_points, y_lane_points)
+        self.use_linear_window = self.lane_line.smooth()
         self.lane_line.generateXY(img_ht=self.binary_warped.shape[0])
         
         return 
@@ -1024,7 +947,7 @@ class AdvancedLaneFinder:
             self.center_offset = None
             
         msg = "Center offset: {}."
-        self.logger.debug(msg.format(self.center_offset * 100))
+        self.logger.debug(msg.format(self.center_offset))
             
         return self.center_offset 
         
