@@ -15,55 +15,86 @@ class Enhancer:
     - enhance: combine Sobel_x gradient and s_channel thresholding
     '''
     
-    def __init__(self):
+    def __init__(self, sob_min_x=40, y_min_s=57, y_min_v=220, w_min_l=202):
+    
         self.logger = logging.getLogger("Enhancer")
+        
+        self.sob_min_x = sob_min_x
+        self.y_min_s = y_min_s
+        self.y_min_v = y_min_v
+        self.w_min_l = w_min_l
         
         return
         
         
-    def preprocess__DEV__(self, img):
-
-        def h(deg):
-            return deg // 2
-            
-        def s(pct):
-            return np.int8(pct * 255)
-            
-        def v(pct):
-            return np.int8(pct * 255)
-    
-        #---get shadow
-        
-        self.logger.debug("Preprocess()")
+    def yellowLaneMask(self, img):
+        self.logger.debug("maskYellowLane()")
         
         hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
 
-        hc = hsv[:,:,0]
-        sc = hsv[:,:,1]
-        vc = hsv[:,:,2]
-        # find all pixels in shadow  (black road color)
-        v_shadow =  vc <= v(0.25)  # saturation is lower (gray stuff)   32
-        # h_shadow = (h(0) <= hc) & (hc <= h(25))
-        s_shadow = sc >= s(0.25)
-        in_shadow = v_shadow & s_shadow
-        # set sat and value of all low val  pixels to 0
-        sc[in_shadow] = s(1.0)   
-        hc[in_shadow] = h(60)
-        vc[in_shadow] = v(0.6)
-
-        return cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB)
+        s = hsv[:,:,1] # s-channel
+        v = hsv[:,:,2] # v-channel
         
-
-    def maskYellowLane(self, img):
-        self.logger.debug("Preprocess()")
-        
-        hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
-
-        mask = np.zeros_like(hsv[:,:,1])
-        
-        mask [(hsv[:,:,1] > 57) & (hsv[:,:,2] > 220)] = 1
+        mask = np.zeros_like(s)
+        mask [( s > self.y_min_s) & (v > self.y_min_v)] = 1
         
         return mask
+        
+    def whiteLaneMask(self, img):
+        self.logger.debug("maskWhiteLane")
+        
+        hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
+        
+        l = hls[:,:,1] # l-channel 
+        
+        mask = np.zeros_like(l)
+        mask[(self.w_min_l <= l) & (l <= 255)] = 1
+        
+        return mask
+        
+    def sobelXMask(self, img):
+        '''
+        Detects edges by measuring gradients along x axis.
+        
+        Params:
+        - img: an RGB image of road to enhance
+        
+        Returns:
+        - mask: a binary image highlighting where edges were detected
+        '''
+        
+        self.logger.debug("SobelX()")
+        
+        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        sobel = np.absolute(cv2.Sobel(gray, cv2.CV_64F, dx=1, dy=0))
+        sobel_scaled = np.uint8(255 * sobel / np.max(sobel))
+        
+        mask = np.zeros_like(sobel_scaled)
+        
+        # activate (set to "1") all pixels that meet the x gradient thresholds
+        mask[(self.sob_min_x <= sobel_scaled) & (sobel_scaled <= 255)] = 1
+        
+        return mask
+        
+    def enhance(self, img):
+        '''
+        Combines SobelX and SMask methods for enhancing lanes
+        
+        Params:
+        - img: an RGB image of road to enhance
+
+        Returns:
+        - a binary image resulting from bitwise "or" of sobel and s-channel masks
+        '''
+        
+        sobel_mask = self.sobelXMask (img)
+
+        yellow_mask = self.yellowLaneMask(img) 
+        
+        white_mask = self.whiteLaneMask(img)
+        
+        return sobel_mask | yellow_mask | white_mask
+        
         
     
     
@@ -95,7 +126,7 @@ class Enhancer:
         return cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB)
         
     
-    def SobelXMask(self, img, t_min=20, t_max=255):
+    def SobelXMask__GOod__(self, img, t_min=20, t_max=255):
         '''
         Detects edges by measuring gradients along x axis.
         
@@ -206,7 +237,7 @@ class Enhancer:
         return mask
         
         
-    def enhance(self, img):
+    def enhance__GOOD___(self, img):
         '''
         Combines SobelX and SMask methods for enhancing lanes
         

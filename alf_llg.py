@@ -23,7 +23,7 @@ class Line:
     - getPaintPoints
     '''
     
-    def __init__(self, max_coeffs=12, N=12, min_size=3, coeff_bias=0.8):
+    def __init__(self, max_coeffs=12, N=12, min_size=3, coeff_bias=0.9):
 
         self.logger = logging.getLogger("Line " + str(id(self))[-4:])
 
