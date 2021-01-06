@@ -80,30 +80,45 @@ class ImageWarper:
         Calculates the transform and inverse tranformation matrices
         
         Params:
-        - calibration set: set of src are dst points of the form [[x1, y2], [x2, y2], ...];
-        src points are points on original image; dst points are points that the src points
-        will be transformed to
+        - calibration set: set of src are dst points of the form [[x1, y2], 
+        [x2, y2], ...]; src points are points on original image; dst points 
+        are points that the src points will be transformed to
         '''
+        
+        self.logger = logging.getLogger("ImageWarper")
         
         #--- set default calibration set to top-down perspective
         if calibration_set is None:
             calibration_set = TopDownWarperCalibrationSet()
             
         self.calibration_set = calibration_set
+            
+        # transformation matrices
+        self.M = None
+        self.invM = None
         
+        return
+        
+    def calibrate(self):
+        '''
+        Calculates transformation matrices.
+        '''
+    
         #--- M: transformation matrix
-        self.M = cv2.getPerspectiveTransform(calibration_set.src_points, 
-                                             calibration_set.dst_points)
+        self.M = cv2.getPerspectiveTransform(self.calibration_set.src_points, 
+                                             self.calibration_set.dst_points)
         
         #--- use invM when unwarping image
-        self.invM = cv2.getPerspectiveTransform(calibration_set.dst_points, 
-                                                calibration_set.src_points)
+        self.invM = cv2.getPerspectiveTransform(self.calibration_set.dst_points, 
+                                                self.calibration_set.src_points)
+                                                
+        self.logger.info("Transformation matrices created.")
         
         return
         
     def warpPerspective(self, img):
         '''
-        warps perspective based on transformation_matrix
+        Warps perspective based on transformation_matrix
         
         Params:
         - img: the image to be distorted; can be RGB or gray scale
@@ -116,14 +131,16 @@ class ImageWarper:
         '''
         
         img_warped = cv2.warpPerspective(img, self.M, 
-                                        (img.shape[1], img.shape[0]), 
-                                        flags=cv2.INTER_LINEAR)
+                (img.shape[1], img.shape[0]), 
+                flags=cv2.INTER_LINEAR)
         
         return img_warped
     
     def unwarpPerspective(self, img):
         
-        img_unwarped = cv2.warpPerspective(img, self.invM, (img.shape[1], img.shape[0]), flags=cv2.INTER_LINEAR)
+        img_unwarped = cv2.warpPerspective(img, self.invM, 
+                (img.shape[1], img.shape[0]), 
+                flags=cv2.INTER_LINEAR)
         
         return img_unwarped
         

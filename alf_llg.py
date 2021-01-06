@@ -22,21 +22,21 @@ class Line:
     - generatePoints
     - getPaintPoints
     '''
-    
-    def __init__(self, max_coeffs=12, N=12, min_size=3, coeff_bias=0.9):
+    # coeeffs = 12
+    def __init__(self): 
 
         self.logger = logging.getLogger("Line " + str(id(self))[-4:])
 
         # coefficients of line where x = ay**2 + by + c
         # coeffs[0] = a; coeffs[1] = b; coeffs[2] = c
-        self.coeffs = None
-        self.min_size = min_size # num prev lines to sample coeffs
-        self.N = N # num of std devs from mean coeffs to smooth
-        self.coeff_bias = coeff_bias # avg coeff bias = 1 - coeff bias
+        self.coeffs      = None
+        self.min_samples = None # num prev lines to sample coeffs
+        self.N           = None # num of std devs from mean coeffs to smooth
+        self.coeff_bias  = None # avg coeff bias = 1 - coeff bias
         
         # list of coefficients of previously found lines
         self.prev_coeffs = [] # [[a1, b2, c1], [a2, b2, c2], ...]
-        self.max_coeffs = max_coeffs # max coeffs to keep before popping oldest 
+        self.max_coeffs  = None # max coeffs to keep before popping oldest 
 
         # True if polyfit() solved for line coefficients
         # check this variable first before using Line
@@ -53,6 +53,24 @@ class Line:
         
         self.logger.debug("Initialized.")
 
+        return
+        
+    def setParams(self, max_coeffs=50, min_samples=3, N=12, coeff_bias=0.9):
+        '''
+        Sets tunable parameters for line smoothing.
+        
+        Params:
+        - max_coeffs: max coeffs to keep before popping oldest 
+        - min_samples: num prev lines needed to smooth
+        - N: num of std devs from mean coeffs to smooth
+        - coeff_bias: avg_coeff_bias = 1 - coeff_bias
+        '''
+    
+        self.min_samples = min_samples 
+        self.N = N 
+        self.coeff_bias = coeff_bias 
+        self.max_coeffs = max_coeffs 
+        
         return
         
     def fit(self, x_points, y_points):
@@ -143,7 +161,7 @@ class Line:
             
             if self.found:
                 
-                if len (self.prev_coeffs) > self.min_size:
+                if len (self.prev_coeffs) > self.min_samples:
                     # see if coeff of line is within std devs of avg 
                     # of previous lines 
                     std_prev_coeffs = np.std(self.prev_coeffs, axis=0)
@@ -470,6 +488,7 @@ class SlidingWindow:
         
     def slideUp__TEST__ (self):
         '''
+        
         Updates window position by decreasing y1 and y2
         
         - y2 updated first to one line above y1
@@ -522,6 +541,14 @@ class SlidingWindow:
             self.passed_top = True
             
         return
+        
+        
+    def paint(self, img):
+    
+        for window in self.window_history:
+            start_point = (window[0], window[1])
+            cv2.rectangle(
+        
     
     
 class LinearWindow:
@@ -648,6 +675,15 @@ class LaneLineFinder:
         
         # points of the lane line in ([[x1, y1], [x2, y2], ...) format that is used in cv2 drawing functions
         self.paint_points = None
+        
+        return
+        
+    def setParams(self, max_coeffs, min_samples, N, coeff_bias):
+        '''
+        Sets smoothing parameters for line.
+        '''
+        
+        self.lane_line.setParams(max_coeffs, min_samples, N, coeff_bias)
         
         return
     
@@ -816,7 +852,8 @@ class LaneLineFinder:
 
         self.paint_points = self.lane_line.getPoints()
 
-        # flip points upside down if required; useful for right lane in drawing polygon with left lane
+        # flip points upside down if required; useful for right lane in 
+        # drawing polygon with left lane
         if flipud and self.paint_points is not None:
             # if you flipud(paint_points), it will be the same 
             # since there is only 1 element in first dimension
@@ -834,8 +871,8 @@ class LaneLineFinder:
         Params:
         - img: an RGB image to draw the lane line on.
         '''
-        msg = "Painting lane."
-        self.logger.debug(msg)
+        self.logger.debug("Painting lane.")
+        self.lane_points_finder.paint(img)
         self.lane_line.paint(img)
 
         return
@@ -915,6 +952,19 @@ class AdvancedLaneFinder:
         self.center_offset = None
         
         return
+        
+    def setParams(self, max_coeffs, min_samples, N, coeff_bias):
+        '''
+        Sets smoothing parameters.
+        '''
+        
+        self.left_lane_line_finder.setParams(max_coeffs, min_samples, 
+                N, coeff_bias)
+        self.right_lane_line_finder.setParams(max_coeffs, min_samples, 
+                N, coeff_bias)
+                
+        
+        return
     
     def findLanes(self, binary_warped):
         
@@ -991,10 +1041,17 @@ class AdvancedLaneFinder:
             
         return self.center_offset 
         
-    def paintLaneArea(self):
+    def paintLaneArea(self, binary_warped):
         '''
         Paints the lane and area between lane onto an image
+        
+        Returns:
+        - RGB image of lane area painted
+        - radius of curvature
+        - center offset
         '''
+        
+        self.findLanes(binary_warped)
         
         #
         # create the blank image for painting
@@ -1031,5 +1088,5 @@ class AdvancedLaneFinder:
             # paint the lane area
             cv2.fillPoly(img, lane_area_paint_pts, [0,255,0])
             
-        return img
+        return img, self.radius(), self.centerOffset()
         
