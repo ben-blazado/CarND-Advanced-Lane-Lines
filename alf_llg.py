@@ -5,9 +5,9 @@ import matplotlib.image as mpimg
 import glob
 import logging
 
-#--- image to real space scaling default per lesson Measuring Curvature II
-#--- in meters per pixel; used in calculating radius of curvature
-#--- as well as offset center
+# image to real space scaling default per lesson Measuring Curvature II
+# in meters per pixel; used in calculating radius of curvature
+# as well as offset center
 XM_PER_PIXEL = 3.7 / 700    
 YM_PER_PIXEL = 30 / 720
     
@@ -23,36 +23,39 @@ class Line:
     - getPaintPoints
     '''
     
-    def __init__(self):
+    def __init__(self, max_coeffs=12, N=12, min_size=3, coeff_bias=0.8):
 
         self.logger = logging.getLogger("Line " + str(id(self))[-4:])
 
-        #--- coefficients of line where x = ay**2 + by + c
-        #--- coeffs[0] = a; coeffs[1] = b; coeffs[2] = c
+        # coefficients of line where x = ay**2 + by + c
+        # coeffs[0] = a; coeffs[1] = b; coeffs[2] = c
         self.coeffs = None
+        self.min_size = min_size # num prev lines to sample coeffs
+        self.N = N # num of std devs from mean coeffs to smooth
+        self.coeff_bias = coeff_bias # avg coeff bias = 1 - coeff bias
         
-        #--- list of coefficients of previously found lines
-        self.prev_coeffs = []    #--- [[a1, b2, c1], [a2, b2, c2], ...]
-        self.max_coeffs  = 12    #--- max coeffs to keep before popping oldest 
+        # list of coefficients of previously found lines
+        self.prev_coeffs = [] # [[a1, b2, c1], [a2, b2, c2], ...]
+        self.max_coeffs = max_coeffs # max coeffs to keep before popping oldest 
 
-        #--- True if polyfit() solved for line coefficients
-        #--- check this variable first before using Line
+        # True if polyfit() solved for line coefficients
+        # check this variable first before using Line
         self.found = False
         
-        #--- numpy array of points representing the line
-        #--- these will be generated in call to generateXY
+        # numpy array of points representing the line
+        # these will be generated in call to generateXY
         self.x = None
-        self.y = None    #--- should be [(height of image - 1) to 0]
+        self.y = None # should be [0 to (height of image - 1)]
 
-        #--- pts() method combines x and y to form [[x1, y1], [x2, y2], ...]
-        #--- used in draw functions
+        # pts() method combines x and y to form [[x1, y1], [x2, y2], ...]
+        # used in draw functions
         self.pts = None
         
         self.logger.debug("Initialized.")
 
         return
         
-    def fit(self, x_points, y_points, polyfit_tries=3):
+    def fit(self, x_points, y_points):
         '''
         Finds the coefficients of the line given a set of x and y points.
         
@@ -63,10 +66,9 @@ class Line:
         radius(); we should not have to use this since 
         we will try to use the scaling algorithm in "Measuring Curvature II"
         for the coefficients in call to radius()
-        - polyfit_tries: number of attempts to polyfit before continuing
         
         Notes:
-        - Makes up to a default polyfit_tries(3) attempts with error checking 
+        - Makes up to a default max_tries(3) attempts with error checking 
         for a successful fit.
         - Coefficients are set to none if no line found
         - Needed to use error handling for calls to polyfit; would cause 
@@ -77,16 +79,18 @@ class Line:
         '''
         
         self.logger.debug("fit()")
+        
         self.pts = None    
         self.x = None
-        self.y = None    #--- should be [0 to (height of image - 1)]
+        self.y = None 
         
-        self.found = False         # true if polyfit succesfully fits the line
+        self.found = False 
         tries = 0
-        while tries < polyfit_tries and not self.found:
+        max_tries = 3
+        while tries < max_tries and not self.found:
             tries += 1
             try:
-                #--- we solve for X!!! i.e. x = ay**2 + by + c
+                # remember we solve for X!!! i.e. x = ay**2 + by + c
                 coeffs = np.polyfit(y_points, x_points, deg=2)
                 if tries > 1:
                     msg = "Polyfit succeeded on try {}."
@@ -94,7 +98,7 @@ class Line:
                 self.found = True
             
             except Exception as e:
-                if tries < polyfit_tries:
+                if tries < max_tries:
                     msg = "Polyfit failed: {}. Trying again."
                     self.logger.debug(msg.format(e))
                 else:
@@ -108,7 +112,7 @@ class Line:
             
         return
     
-    def smooth (self, N=3, min_size=10):
+    def smooth (self):
         '''
         Smooths the line by using the average of past coeefficients
         
@@ -118,18 +122,19 @@ class Line:
         - min_size: number of previous lines to begin sampling
         
         Returns:
-        - self.found: True if a line was found previously in fit and was a 
-        good line, or if fit did not find a line by smooth was able to use 
-        the average of past coeffs to define a line
+        - good_fit: True if a line found previously in fit was a 
+        good good fit to the previous lines
         
         Notes:
         - Call after fit!
         - if fit() did not find a line, smooth() can set coeffs to average of 
         - coeffs for line! thus, finding a line, though it's an average of previous
         
-        - Checks if x is within m std devs of the mean of values in arr
+        - Checks if x is within N std devs of the mean of values in arr
         - ref for discussion of outlier: https://bit.ly/3pPo9d3
         '''
+        
+        good_fit = False
         
         self.logger.debug("Smooth()")
         if self.prev_coeffs:
@@ -138,22 +143,27 @@ class Line:
             
             if self.found:
                 
-                if len (self.prev_coeffs) > min_size:
-                    #--- see if coeff of line is within std devs of avg 
-                    #--- of previous lines 
+                if len (self.prev_coeffs) > self.min_size:
+                    # see if coeff of line is within std devs of avg 
+                    # of previous lines 
                     std_prev_coeffs = np.std(self.prev_coeffs, axis=0)
                     in_range = (abs(self.coeffs - avg_prev_coeffs) 
-                                < N*std_prev_coeffs)
+                               < self.N*std_prev_coeffs)
                 else:
                     in_range = [True]
+                    
+                good_fit = all (in_range)
 
-                if all(in_range):
+                if good_fit:
                     self.logger.debug("Line fit seems ok.")
-                    self.coeffs = (avg_prev_coeffs + 9 * self.coeffs) / 10
+                    # coeffs use avg prev coeffs based on bias
+                    # set coeff bias to 1 to prevent bias from prev coeffs
+                    self.coeffs = (self.coeff_bias*self.coeffs
+                                  + (1-self.coeff_bias)*avg_prev_coeffs)
                     self.prev_coeffs.append(self.coeffs) 
                     if len(self.prev_coeffs) > self.max_coeffs:
-                        #--- pop first to remove oldest line from list to 
-                        #--- prevent being include in average
+                        # pop first to remove oldest line from list to 
+                        # prevent being include in average
                         self.prev_coeffs.pop(0)
                         msg = "Coeff buffer full:{}. Removed oldest line."
                         self.logger.debug(msg.format(len(self.prev_coeffs)))
@@ -162,32 +172,31 @@ class Line:
                     self.logger.debug("Line fit looks off; "
                         + "will use average of previous.")
                     self.coeffs = avg_prev_coeffs
-                    #--- set found to False since line was bad
-                    #--- remove oldest line; allows list of previous fits
-                    #--- to decay to nothing if consecutive bad lines are
-                    #--- are found
+                    # set found to False since line fit was bad
+                    # remove oldest line; allows list of previous fits
+                    # to decay to nothing if consecutive bad lines are
+                    # are found
                     self.prev_coeffs.pop(0)
-                    return False
                     
             else:
-                #--- line not found, use average of previous coffecients 
+                # line not found, use average of previous coffecients 
                 self.logger.debug("Line was not found! "
                     + "Using average of old lines.")
                 self.coeffs = avg_prev_coeffs                
                 self.prev_coeffs.pop(0)
-                #--- set found to True since we "found" a line 
-                #--- using the average of previous coeffs
-                self.found = True
+                # set found to True since we "found" a line 
+                # using the average of previous coeffs
                 
         elif self.found:
-            #--- first coeff to add to list! 
-            #--- don't smooth since there is nothing to smooth to
+            # first coeff to add to list! 
+            good_fit = True
+            # don't smooth since there is nothing to smooth to
             self.prev_coeffs.append(self.coeffs) 
             
         msg = "Number of old lines/coeffs: {}."
         self.logger.debug(msg.format(len(self.prev_coeffs)))
             
-        return self.found
+        return good_fit
     
     def generateXY(self, img_ht):
         '''
@@ -206,13 +215,13 @@ class Line:
         if not self.found:
             return
 
-        #--- Check if we have already generated lines for this height
-        #--- if we havent, generate the points else skip and just reuse what we have already
-        #--- generate y points from 0 to img_ht, cast to int32 for ease of plotting
+        # Check if we have already generated lines for this height
+        # if we havent, generate the points else skip and just reuse what we have already
+        # generate y points from 0 to img_ht, cast to int32 for ease of plotting
         self.y = np.int32 (np.array([y for y in range(img_ht)]))
 
-        #--- TODO: what if x < 0 or x > img wid 
-        #--- calculate points based on x, cast to int32 for ease of plotting
+        # TODO: what if x < 0 or x > img wid 
+        # calculate points based on x, cast to int32 for ease of plotting
         self.x = np.int32 (self.coeffs[0] * self.y**2 + self.coeffs[1] * self.y 
                     + self.coeffs[2])
 
@@ -280,7 +289,7 @@ class Line:
             return None
             
         try:
-            #--- rescale coeffs and y to real world
+            # rescale coeffs and y to real world
             a = self.coeffs[0] * xm_per_pix / ym_per_pix**2
             b = self.coeffs[1] * xm_per_pix / ym_per_pix
             y = y * ym_per_pix    # scale y to real-world!
@@ -328,8 +337,8 @@ class Line:
             return None
             
         if self.pts is None:
-            #--- combine and transform x_ and y_points to [[x1, y1], [x2, y2], ...]
-            #--- vstack shape=(2, n), then after transpose shape=(n,2)
+            # combine and transform x_ and y_points to [[x1, y1], [x2, y2], ...]
+            # vstack shape=(2, n), then after transpose shape=(n,2)
             self.pts = np.array([(np.transpose(np.vstack((self.x, self.y))))])
             self.logger.debug("New pts calculated.")
         else:
@@ -344,7 +353,7 @@ class Line:
             cv2.polylines(img, 
                           pts       = self.getPoints(), 
                           isClosed  = False, 
-                          color     = [255, 0, 0],    #--- default red line color
+                          color     = [255, 0, 0],    # default red line color
                           thickness = 20)
         return
 
@@ -365,7 +374,7 @@ class SlidingWindow:
     def __init__(self, x_mid, target_ht, image_points, 
                  num_segments = 8, x_offset=50, numpoints_found_thresh = 50):
 
-        #--- x1 = x_mid - offset, x2 = x_mid + offset
+        # x1 = x_mid - offset, x2 = x_mid + offset
         self.x_mid    = x_mid
         self.x_offset = x_offset
         self.x1       = x_mid - x_offset
@@ -373,26 +382,26 @@ class SlidingWindow:
         self.x_dir    = None    # used to move search area if low points found
         
         self.ht = target_ht // num_segments
-        self.y2 = target_ht   #--- y2 is bottom of image
+        self.y2 = target_ht   # y2 is bottom of image
         self.y1 = self.y2 - self.ht
         
-        #--- number of points found to calculate
-        #--- average x for next mid point when window slides up
+        # number of points found to calculate
+        # average x for next mid point when window slides up
         self.numpoints_found_thresh = numpoints_found_thresh
         
-        #--- unpack image points which are all the nonzero points in target image
-        #--- point (image_points_x[i], image_points_y[i]) is a nonzero point in target image
+        # unpack image points which are all the nonzero points in target image
+        # point (image_points_x[i], image_points_y[i]) is a nonzero point in target image
         self.image_points_x, self.image_points_y = image_points
         
-        #--- true if window has slid passed the top of the target image
+        # true if window has slid passed the top of the target image
         self.passed_top = False
         
-        #--- holds all image points found in current window using find_points
+        # holds all image points found in current window using find_points
         self.lane_points_x = []
         self.lane_points_y = []
         
-        #--- holds coordinates of windows borders as it is slid up
-        #--- used for demo
+        # holds coordinates of windows borders as it is slid up
+        # used for demo
         self.window_history = []
         
         return
@@ -427,38 +436,39 @@ class SlidingWindow:
             
             self.window_history.append([self.x1, self.y1, self.x2, self.y2])
             
-            #--- mask in all points within window by x and y values
+            # mask in all points within window by x and y values
             x_bool_mask = (self.x1 <= self.image_points_x) & (self.image_points_x <= self.x2)
             y_bool_mask = (self.y1 <= self.image_points_y) & (self.image_points_y <= self.y2)
 
-            #--- bit wise the x and y masks to get the actual points
+            # bit wise the x and y masks to get the actual points
             xy_bool_mask = (x_bool_mask) & (y_bool_mask)
 
-            #--- apply mask to image_points_x and _y to find the points that are in window region
+            # apply mask to image_points_x and _y to find the points that are in window region
             points_found_x = self.image_points_x[xy_bool_mask]
             points_found_y = self.image_points_y[xy_bool_mask]
 
-            #--- collect the points found into lane_points_x and _y
-            #--- if window is not slid up after call to findpoints, 
-            #--- then lane_points may contain duplicate points on next call to findpoints
+            # collect the points found into lane_points_x and _y
+            # if window is not slid up after call to findpoints, 
+            # then lane_points may contain duplicate points on next call to findpoints
             self.lane_points_x.extend(points_found_x)
             self.lane_points_y.extend(points_found_y)
 
-            #--- update the midpoint if enough points found above threshold
+            # update the midpoint if enough points found above threshold
             if len(points_found_x) >= self.numpoints_found_thresh:
-                #--- must be INT! or 
+                # must be INT! or 
                 new_x_mid = np.int(np.average(points_found_x))
                 self.x_dir = new_x_mid - self.x_mid
                 self.x_mid = new_x_mid
-            elif len(points_found_x) < self.numpoints_found_thresh // 3 
-                    and self.x_dir is not None:
-                self.xmid += self.x_dir
+            #elif (len(points_found_x) < self.numpoints_found_thresh // 3 
+            #        and self.x_dir is not None):
+            #    self.x_mid += self.x_dir
                 
             self.slideUp()
         
         return (self.lane_points_x, self.lane_points_y)
-    
-    def slideUp (self):
+        
+        
+    def slideUp__TEST__ (self):
         '''
         Updates window position by decreasing y1 and y2
         
@@ -468,13 +478,41 @@ class SlidingWindow:
         - x1 and x2 are updated in case find_points updated xmid
         '''
         
-        #--- update y2 (bottom) of window to line above top
+        # update y2 (bottom) of window to line above top
+        self.y2 = self.y2 - self.ht // 4 - 1
+        
+        if self.y2 > 0:
+            self.y1 = self.y1 - self.ht // 4 - 1
+            if self.y1 < 0:
+                # set y1 to 0 if y1 is below 0
+                self.y1 = 0
+
+            self.x1 = self.x_mid - self.x_offset
+            self.x2 = self.x_mid + self.x_offset
+
+        else:
+            self.passed_top = True
+            
+        return
+        
+    
+    def slideUp(self):
+        '''
+        Updates window position by decreasing y1 and y2
+        
+        - y2 updated first to one line above y1
+        - y1 is then updated to y2 - height of window
+        - if y2 <= 0, then window has reached the top
+        - x1 and x2 are updated in case find_points updated xmid
+        '''
+        
+        # update y2 (bottom) of window to line above top
         self.y2 = self.y1 - 1
         
         if self.y2 > 0:
             self.y1 = self.y1 - self.ht - 1
             if self.y1 < 0:
-                #--- set y1 to 0 if y1 is below 0
+                # set y1 to 0 if y1 is below 0
                 self.y1 = 0
 
             self.x1 = self.x_mid - self.x_offset
@@ -515,13 +553,13 @@ class LinearWindow:
         self.ht = target_ht
         self.image_points_x, self.image_points_y = image_points
         
-        #--- x1 and x2 define the borders/extents of the search area about the line
-        #--- use line.X() to generate the x points of the border
+        # x1 and x2 define the borders/extents of the search area about the line
+        # use line.X() to generate the x points of the border
         self.x1 = line.lookupX(self.image_points_y) - x_offset
-        #--- add offset twice to x1 to get right border of the search area
+        # add offset twice to x1 to get right border of the search area
         self.x2 = self.x1 + x_offset + x_offset
         
-        #--- lane points have not been found yet
+        # lane points have not been found yet
         self.lane_points_x = []
         self.lane_points_y = []
         
@@ -544,17 +582,17 @@ class LinearWindow:
         fed to polyfit to determine the line that fits the area define by the lane points.
         '''
         
-        #--- mask in all points within linear window by x values
+        # mask in all points within linear window by x values
         x_bool_mask = (self.x1 <= self.image_points_x) & (self.image_points_x <= self.x2)
         
-        #--- apply mask to image_points_x and _y to find the points 
-        #--- that are in linear window search area 
+        # apply mask to image_points_x and _y to find the points 
+        # that are in linear window search area 
         points_found_x = self.image_points_x[x_bool_mask]
         points_found_y = self.image_points_y[x_bool_mask]
         
-        #--- collect the points found into lane_points_x and _y
-        #--- if window is not slid up after call to findpoints, 
-        #--- then lane_points may contain duplicate points on next call to findpoints
+        # collect the points found into lane_points_x and _y
+        # if window is not slid up after call to findpoints, 
+        # then lane_points may contain duplicate points on next call to findpoints
         self.lane_points_x.extend(points_found_x)
         self.lane_points_y.extend(points_found_y)
         
@@ -588,27 +626,27 @@ class LaneLineFinder:
         
         self.logger = logging.getLogger("LaneLineFinder " + str(id(self))[-4:])
         
-        #--- topdown image of the road in binary format; should be fed in from ImageWarper
+        # topdown image of the road in binary format; should be fed in from ImageWarper
         self.binary_warped = None
         
-        #--- x value where sliding window starts its search
+        # x value where sliding window starts its search
         self.x_start       = None
         
-        #--- nonzero points of road image
+        # nonzero points of road image
         self.image_points  = None
         
-        #--- holds lane line used to manage math of the line
+        # holds lane line used to manage math of the line
         self.lane_line = Line()
         
-        #--- variables for the lane search methods
+        # variables for the lane search methods
         self.sliding_window     = None 
         self.linear_window      = None
-        self.lane_points_finder = None    #--- will eirher be sliding_window or linear_window
+        self.lane_points_finder = None    # will eirher be sliding_window or linear_window
         
-        #--- helps to select lane points search algorithm 
-        self.use_linear_window  = False    #--- If true, use linear search window method, else use sliding
+        # helps to select lane points search algorithm 
+        self.use_linear_window  = False    # If true, use linear search window method, else use sliding
         
-        #--- points of the lane line in ([[x1, y1], [x2, y2], ...) format that is used in cv2 drawing functions
+        # points of the lane line in ([[x1, y1], [x2, y2], ...) format that is used in cv2 drawing functions
         self.paint_points = None
         
         return
@@ -637,8 +675,8 @@ class LaneLineFinder:
         
         nonzero_points = np.nonzero(self.binary_warped)
         
-        #--- y (row) points come first!!! index 0
-        #--- x (col) points are in second!!! index 1
+        # y (row) points come first!!! index 0
+        # x (col) points are in second!!! index 1
         image_points_y = np.array(nonzero_points[0])
         image_points_x = np.array(nonzero_points[1])
         
@@ -660,7 +698,7 @@ class LaneLineFinder:
 
         self.updateXStart()
         if self.sliding_window:
-            #--- resuse existing and reinitizalize instance
+            # resuse existing and reinitizalize instance
             self.sliding_window.reinit(self.x_start,
                                       target_ht    = self.binary_warped.shape[0],
                                       image_points = self.image_points)
@@ -684,7 +722,7 @@ class LaneLineFinder:
         '''
         
         if self.linear_window:
-            #--- reuse and reinitizalize existing instance
+            # reuse and reinitizalize existing instance
             self.linear_window.reinit(self.lane_line, 
                                       target_ht    = self.binary_warped.shape[0],
                                       image_points = self.image_points)
@@ -700,11 +738,11 @@ class LaneLineFinder:
         '''
 
         if self.use_linear_window:
-            #--- use LinearWindow if lane lines were previously found
+            # use LinearWindow if lane lines were previously found
             self.lane_points_finder = self.getLinearWindow()
             self.logger.debug("Selected linear window.")
         else:
-            #--- use sliding window if lane lines were NOT previously found
+            # use sliding window if lane lines were NOT previously found
             self.lane_points_finder = self.getSlidingWindow()
             self.logger.debug("Selected sliding window.")
             
@@ -724,7 +762,7 @@ class LaneLineFinder:
         
         x_lane_points, y_lane_points = self.lane_points_finder.findPoints()
 
-        #--- TODO: whatif for x_lane_points, y_lane_points = None, None
+        # TODO: whatif for x_lane_points, y_lane_points = None, None
         
         self.lane_line.fit(x_lane_points, y_lane_points)
         self.use_linear_window = self.lane_line.smooth()
@@ -739,7 +777,7 @@ class LaneLineFinder:
         Notes:
         - Measurement taken at bottom of image; i.e. img_ht - 1
         '''
-        #--- take the radius at the bottom of the image
+        # take the radius at the bottom of the image
         y = self.binary_warped.shape[1] - 1
         R = self.lane_line.radius(y, XM_PER_PIXEL, YM_PER_PIXEL)
 
@@ -778,12 +816,12 @@ class LaneLineFinder:
 
         self.paint_points = self.lane_line.getPoints()
 
-        #--- flip points upside down if required; useful for right lane in drawing polygon with left lane
+        # flip points upside down if required; useful for right lane in drawing polygon with left lane
         if flipud and self.paint_points is not None:
-            #--- if you flipud(paint_points), it will be the same 
-            #--- since there is only 1 element in first dimension
-            #--- first element of paint_points contains the actual points
-            #--- so flipud (paint_points[0]) then apply np.array([])
+            # if you flipud(paint_points), it will be the same 
+            # since there is only 1 element in first dimension
+            # first element of paint_points contains the actual points
+            # so flipud (paint_points[0]) then apply np.array([])
             return np.array([np.flipud(self.paint_points[0])])
         
         else:
@@ -812,12 +850,14 @@ class LeftLaneLineFinder(LaneLineFinder):
     '''
 
     def updateXStart(self):
+    
+        # TODO: what of NO points found
         
-        #--- get bottom half of image for histogram
+        # get bottom half of image for histogram
         bottom_half = self.binary_warped[self.binary_warped.shape[0] // 2:,:]
         histogram = np.sum(bottom_half, axis=0)
 
-        #--- search only **left** half of histogram
+        # search only **left** half of histogram
         mid_x = histogram.shape[0] // 2
         self.x_start = np.argmax(histogram[:mid_x])
         
@@ -837,7 +877,7 @@ class RightLaneLineFinder(LaneLineFinder):
         bottom_half = self.binary_warped[self.binary_warped.shape[0] // 2:,:]
         histogram = np.sum(bottom_half, axis=0)
 
-        #--- search only **right** half of histogram
+        # search only **right** half of histogram
         mid_x = histogram.shape[0] // 2
         self.x_start = mid_x + np.argmax(histogram[mid_x:])
         
@@ -859,7 +899,7 @@ class AdvancedLaneFinder:
     
     def __init__(self):
         
-        #--- TODO: calculate fps
+        # TODO: calculate fps
         
         self.logger = logging.getLogger("AdvancedLaneFinder")
         
@@ -870,7 +910,7 @@ class AdvancedLaneFinder:
 
         self.binary_warped = None
         
-        #--- middle x coordinate of image; used for calculating center offset
+        # middle x coordinate of image; used for calculating center offset
         self.mid           = None
         self.center_offset = None
         
@@ -897,8 +937,8 @@ class AdvancedLaneFinder:
         Caculates the radius of curvature as the average reported from left and right lanes
         '''
 
-        t = 0    #--- sums up radii values
-        n = 0    #--- count of number of samples
+        t = 0    # sums up radii values
+        n = 0    # count of number of samples
         
         radius_left = self.left_lane_line_finder.radius()
         t  += radius_left if radius_left is not None else 0
@@ -928,10 +968,10 @@ class AdvancedLaneFinder:
         
         img_ctr = self.binary_warped.shape[1] // 2
         
-        t = 0    #--- sums up x values
-        n = 0    #--- count of number of samples
+        t = 0    # sums up x values
+        n = 0    # count of number of samples
 
-        #--- get distance from center
+        # get distance from center
         x_left =  self.left_lane_line_finder.baseX()
         t  += x_left if x_left is not None else 0
         n  += 1 if x_left is not None else 0
@@ -956,39 +996,39 @@ class AdvancedLaneFinder:
         Paints the lane and area between lane onto an image
         '''
         
-        #---
-        #--- create the blank image for painting
-        #---
+        #
+        # create the blank image for painting
+        #
         
-        #--- black screen [0 0 0 ...]
+        # black screen [0 0 0 ...]
         img_binary = np.zeros_like(self.binary_warped).astype(np.uint8)
         
-        #--- black RGB img [[0 0 0], [0 0 0], [0 0 0], ...]
+        # black RGB img [[0 0 0], [0 0 0], [0 0 0], ...]
         img = np.dstack((img_binary, img_binary, img_binary))
         
-        #---
-        #--- paint lanes
-        #---
+        #
+        # paint lanes
+        #
         self.left_lane_line_finder.paint(img)
         self.right_lane_line_finder.paint(img)
         
-        #---
-        #--- paint area between lanes
-        #---
+        #
+        # paint area between lanes
+        #
         
-        #--- get polygon for lane area by getting paint points of each lane finder
+        # get polygon for lane area by getting paint points of each lane finder
         left_lane_paint_points = self.left_lane_line_finder.getPaintPoints()
         
-        #--- need to "reverse" right points array so tail of pts_left is next to head of pts_right
-        #--- this ordering allows fillpoly to traverse around perimeter, 
-        #--- if the order of points is not flipud, the fill will look like a bowtie
+        # need to "reverse" right points array so tail of pts_left is next to head of pts_right
+        # this ordering allows fillpoly to traverse around perimeter, 
+        # if the order of points is not flipud, the fill will look like a bowtie
         right_lane_paint_points = self.right_lane_line_finder.getPaintPoints(flipud=True)
         
         if left_lane_paint_points is not None and right_lane_paint_points is not None:
-            #--- combaine paintpoints into a polygon
+            # combaine paintpoints into a polygon
             lane_area_paint_pts = np.hstack((left_lane_paint_points, right_lane_paint_points))
 
-            #--- paint the lane area
+            # paint the lane area
             cv2.fillPoly(img, lane_area_paint_pts, [0,255,0])
             
         return img
