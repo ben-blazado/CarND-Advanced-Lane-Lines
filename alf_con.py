@@ -84,7 +84,7 @@ class Controller:
                                     unwarped_lanes, rad, off)
                                     
         self.frame_number += 1
-        pct_complete = int((self.frame_number/self.num_frames) * 100)
+        pct_complete = int((self.frame_number // self.interval) * 10)
         if (self.frame_number % self.interval) == 0:
             msg = "Video processing in progress: {}% complete."
             self.logger.info (msg.format(pct_complete))

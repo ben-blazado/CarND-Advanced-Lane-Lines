@@ -391,6 +391,8 @@ class SlidingWindow:
     
     def __init__(self, x_mid, target_ht, image_points, 
                  num_segments = 8, x_offset=50, numpoints_found_thresh = 50):
+                 
+        self.logger = logging.getLogger("SlidingWindow")
 
         # x1 = x_mid - offset, x2 = x_mid + offset
         self.x_mid    = x_mid
@@ -543,11 +545,21 @@ class SlidingWindow:
         return
         
         
-    def paint(self, img):
-    
+    def paint(self, img, fill_color, rect_color=[0,255,0]):
+        
+        # fill in paint points with fill color
+        self.logger.debug("Paint()")
+        img[self.lane_points_y, self.lane_points_x] = fill_color
+        
         for window in self.window_history:
+            msg = "Painting windows {} {} {} {}."
+            self.logger.debug(msg.format(window[0], window[1], 
+                    window[2], window[3]))
             start_point = (window[0], window[1])
-            cv2.rectangle(
+            end_point   = (window[2], window[3])
+            cv2.rectangle(img, start_point, end_point, rect_color)
+            
+        return
         
     
     
@@ -565,7 +577,7 @@ class LinearWindow:
     to start the search.
     '''
     
-    def __init__ (self, line, target_ht, image_points, x_offset=50):
+    def __init__ (self, line, target_ht, image_points, x_offset=100):
         '''
         Defines the boarders of the linear search area along line.
         
@@ -575,10 +587,12 @@ class LinearWindow:
         - image_points: all nonzero points of the image if the form [[x1, x2, ...], [y1, y2, ...]]
         - x_offset: the offset along the x-axis of line to determine search area
         '''
+        self.logger = logging.getLogger("LinearWindow")
         
         self.line = line
         self.ht = target_ht
         self.image_points_x, self.image_points_y = image_points
+        self.x_offset = x_offset
         
         # x1 and x2 define the borders/extents of the search area about the line
         # use line.X() to generate the x points of the border
@@ -589,6 +603,9 @@ class LinearWindow:
         # lane points have not been found yet
         self.lane_points_x = []
         self.lane_points_y = []
+        
+        # x coords of the search line, used in paint
+        self.x_search_line = []
         
         return
     
@@ -618,12 +635,38 @@ class LinearWindow:
         points_found_y = self.image_points_y[x_bool_mask]
         
         # collect the points found into lane_points_x and _y
-        # if window is not slid up after call to findpoints, 
-        # then lane_points may contain duplicate points on next call to findpoints
         self.lane_points_x.extend(points_found_x)
         self.lane_points_y.extend(points_found_y)
         
+        # the x coordinates of the line may be modified after line smoothing
+        # and may not reflect the original search area
+        # so save the x coordinates after find findpoints for use in paint
+        self.x_search_line = [self.line.lookupX(y) for y in range(self.ht)]
+        
         return self.lane_points_x, self.lane_points_y
+        
+    def paint(self, img, fill_color, line_color=[0,255,0]):
+        
+        # fill in lane points
+        img[self.lane_points_y, self.lane_points_x] = fill_color
+        
+        # draw linear window borders
+        wid = img.shape[1]
+        xy = zip (self.x_search_line, self.line.y)
+        
+        msg = "Wid: {}."
+        self.logger.debug(msg.format(wid))
+        
+        for x, y in xy:
+            x_left  = x - self.x_offset
+            if (0 <= x_left) and (x_left < wid):
+                img[y, x_left] = line_color                    
+
+            x_right = x + self.x_offset 
+            if (0 <= x_right) and (x_right < wid):                
+                img[y, x_right] = line_color                            
+        
+        return
     
 
 class LaneLineFinder:
@@ -863,16 +906,27 @@ class LaneLineFinder:
         
         else:
             return self.paint_points
+            
+    def color(self):
+        '''
+        Implement in child class to return RGB color.
+        '''
+        return NotImplementedError
     
-    def paint(self, img):
+    def paint(self, img, search_area=False):
         '''
         Paints the points of the line on canvas
         
         Params:
         - img: an RGB image to draw the lane line on.
+        - search_area: True if you want to paint the search area as well;
+        useful in trouble shooting but does not come out good in final
+        combine image.
         '''
-        self.logger.debug("Painting lane.")
-        self.lane_points_finder.paint(img)
+        
+        self.logger.debug("Paint()")
+        if search_area:
+            self.lane_points_finder.paint(img, self.color())
         self.lane_line.paint(img)
 
         return
@@ -899,6 +953,12 @@ class LeftLaneLineFinder(LaneLineFinder):
         self.x_start = np.argmax(histogram[:mid_x])
         
         return
+        
+    def color(self):
+        '''
+        Returns RGB yellow for left lane.
+        '''
+        return [255, 255, 0]
     
     
 class RightLaneLineFinder(LaneLineFinder):
@@ -919,6 +979,12 @@ class RightLaneLineFinder(LaneLineFinder):
         self.x_start = mid_x + np.argmax(histogram[mid_x:])
         
         return
+        
+    def color(self):
+        '''
+        Returns RGB blue for right lane.
+        '''
+        return [0,0,255]
     
     
 class AdvancedLaneFinder:
@@ -998,14 +1064,14 @@ class AdvancedLaneFinder:
         t  += radius_right if radius_right is not None else 0
         n  += 1 if radius_right is not None else 0
         
-        msg = "Radius left and right: {}, {}"
+        msg = "Radius left and right: {:.3f}, {:.3f}"
         self.logger.debug(msg.format(radius_left, radius_right))
         if n > 0:
             self.avg_radius = t / n
         else:
             self.avg_radius = None
 
-        msg = "AVg Radius: {}."
+        msg = "Avg Radius: {:.3f}."
         self.logger.debug(msg.format(self.avg_radius))
             
         return self.avg_radius
@@ -1068,7 +1134,7 @@ class AdvancedLaneFinder:
         #
         self.left_lane_line_finder.paint(img)
         self.right_lane_line_finder.paint(img)
-        
+
         #
         # paint area between lanes
         #
