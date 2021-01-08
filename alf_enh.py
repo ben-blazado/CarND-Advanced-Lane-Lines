@@ -37,7 +37,8 @@ class Enhancer:
         
         return
         
-    def setParams(self, sob_min_x=40, y_min_s=57, y_min_v=220, w_min_v=201):
+    def setParams(self, sob_min_x=40, y_min_s=57, y_min_v=220, 
+             w_max_s=25, w_min_v=201):
         '''
         Sets thresholds for masks.
         
@@ -51,6 +52,7 @@ class Enhancer:
         self.y_min_s = y_min_s
         self.y_min_v = y_min_v
         self.w_min_v = w_min_v
+        self.w_max_s = w_max_s
         
         return
 
@@ -78,7 +80,7 @@ class Enhancer:
             
         # mask for white lane
         w_mask = np.zeros_like(s)
-        w_mask [v > self.w_min_v] = 1
+        w_mask [( s < self.w_max_s) & (v > self.w_min_v)] = 1
         
         return y_mask | w_mask
     
@@ -121,6 +123,7 @@ class Enhancer:
 
         lane_mask = self.laneMask(img) 
         
+        #TODO: remove this return lane_mask
         return sobel_mask | lane_mask
 
 

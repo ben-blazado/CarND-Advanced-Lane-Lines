@@ -41,6 +41,12 @@ class HUD:
         radius = rad
         if radius is None:
             rad_str = "Radius:"
+        elif radius >= 2000: 
+            # we'll use around 2km for a road that feels straight
+            # min curve radius with superelevation 80mph 4575 ~1.4km
+            # per U.S. government specifications for highway curvature: 
+            # link: https://tinyurl.com/y42ulukp
+            rad_str = "On straightaway"
         else:
             msg = "Radius: {:.2f} km"
             rad_str = msg.format (radius / 1000)

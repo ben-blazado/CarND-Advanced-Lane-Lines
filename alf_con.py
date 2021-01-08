@@ -4,6 +4,7 @@ import alf_war
 import alf_llg
 import alf_hud
 import logging
+import cv2
 from moviepy.editor import VideoFileClip
 
 class Controller:
@@ -46,11 +47,36 @@ class Controller:
             'sob_min_x'
             'y_min_s'
             'y_min_v'
+            'w_max_s'
             'w_min_v'
             'max_coeffs'
             'min_samples'
             'N'
             'coeff_bias'
+            'clip_start'
+            'clip_end'
+            'stage'
+            'output'
+            
+        Notes:
+        - Default params for project_video.mp4:
+        
+            project_video = {
+                'filename'   : 'project_video.mp4',
+                'sob_min_x'  : 40,
+                'y_min_s'    : 57,
+                'y_min_v'    : 220,
+                'w_max_s'    : 25,
+                'w_min_v'    : 201,
+                'max_coeffs' : 50,
+                'min_samples': 3,
+                'N'          : 12,
+                'coeff_bias' : 0.9,
+                'clip_start' : None,
+                'clip_end'   : None,
+                'stage'      : 5,
+                'output'     : 'project_video.mp4'
+            }
         '''
     
         self.filename = params['filename']
@@ -59,6 +85,7 @@ class Controller:
                 sob_min_x = params['sob_min_x'], 
                 y_min_s   = params['y_min_s'], 
                 y_min_v   = params['y_min_v'], 
+                w_max_s   = params['w_max_s'], 
                 w_min_v   = params['w_min_v'])
             
         self.alf.setParams(
@@ -69,16 +96,21 @@ class Controller:
                 
         self.start  = params['clip_start']
         self.end    = params['clip_end']
+        self.stage  = params['stage']
         self.output = params['output']
                 
         return
     
     def processImg(self, img):
     
+        # show search areas (sliding window, linear window)
+        # only if stage selected is 3
+        srch_only = (self.stage == 3)
+        
         img_undistorted     = self.cam.undistort(img)
         binary              = self.enh.enhance(img_undistorted)    
         binary_warped       = self.war.warpPerspective(binary)
-        lane_area, rad, off = self.alf.paintLaneArea(binary_warped)
+        lane_area, rad, off = self.alf.paintLaneArea(binary_warped, srch_only)
         unwarped_lanes      = self.war.unwarpPerspective(lane_area)
         final_img           = self.hud.compose(img_undistorted, 
                                     unwarped_lanes, rad, off)
@@ -89,7 +121,19 @@ class Controller:
             msg = "Video processing in progress: {}% complete."
             self.logger.info (msg.format(pct_complete))
                                     
-        return final_img
+        
+        # change result to one of the outputs above to view
+        pipeline = [img_undistorted, binary, binary_warped, lane_area,
+                unwarped_lanes, final_img]
+        result = pipeline[self.stage]
+        
+        if len(result.shape) < 3:
+            # result is a binary
+            return cv2.cvtColor(result * 255, cv2.COLOR_GRAY2RGB)
+        else:
+            return result
+        
+        # return final_img
     
     def processVideo(self, params):
     
@@ -107,7 +151,6 @@ class Controller:
                     t_end=self.end)
                     
         self.num_frames = clip.fps * clip.duration
-        self.pct_complete = 0
         self.frame_number = 0
         self.interval = self.num_frames // 10
                     
