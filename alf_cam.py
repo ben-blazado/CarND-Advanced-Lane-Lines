@@ -303,4 +303,58 @@ class Camera:
         img_undist = cv2.undistort(img, self.mtx, self.dist)
         
         return img_undist
+        
+
+#
+# Demonstration functions
+#
+
+
+def demoChessboardCorners():
+    '''
+    Show image of chessboard corners annoted.
+    
+    Notes:
+    - For use in Jupyter notebook.
+    '''
+
+    cal_set = ChessboardCameraCalibrationSet()
+    cal_set.loadChessboardImages()
+    cal_set.findChessboardCorners()
+    cal_set.showCorners()
+    
+    return
+    
+    
+def demoCameraCalibration():
+    '''
+    Shows before and after image of camera calibration
+    
+    Notes:
+    - For use in Jupyter Notebook.
+    '''
+
+    img = plt.imread('camera_cal\calibration1.jpg')
+
+    cam = Camera()
+    cam.calibrate()
+    img_undist = cam.undistort(img)
+    
+    plt.figure(figsize=(14,6))
+    ax1 = plt.subplot(121)
+    ax1.imshow(img)
+    ax1.set_title('Original Image with Barrel Distortion')
+    ax2 = plt.subplot(122)
+    ax2.imshow(img_undist)
+    ax2.set_title('Corrected Image after Calibration')
+
+    return
+    
+    
+    
+    
+    
+    
+    
+
     

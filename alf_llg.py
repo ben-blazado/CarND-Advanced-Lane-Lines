@@ -372,7 +372,7 @@ class Line:
                           pts       = self.getPoints(), 
                           isClosed  = False, 
                           color     = [255, 0, 0],    # default red line color
-                          thickness = 20)
+                          thickness = 6)
         return
 
 
@@ -557,7 +557,7 @@ class SlidingWindow:
                     window[2], window[3]))
             start_point = (window[0], window[1])
             end_point   = (window[2], window[3])
-            cv2.rectangle(img, start_point, end_point, rect_color)
+            cv2.rectangle(img, start_point, end_point, rect_color, thickness=6)
             
         return
         
@@ -657,15 +657,37 @@ class LinearWindow:
         msg = "Wid: {}."
         self.logger.debug(msg.format(wid))
         
+        
+        pts_left = []
+        pts_right = []
+        
         for x, y in xy:
             x_left  = x - self.x_offset
             if (0 <= x_left) and (x_left < wid):
-                img[y, x_left] = line_color                    
+                pts_left.append ([x_left, y])
 
             x_right = x + self.x_offset 
             if (0 <= x_right) and (x_right < wid):                
-                img[y, x_right] = line_color                            
+                pts_right.append ([x_right, y])
+                
+        pts_left = np.int32(np.array(pts_left))
+        pts_left = pts_left.reshape((-1, 1, 2))
         
+        pts_right = np.int32(np.array(pts_right))
+        pts_right = pts_right.reshape((-1, 1, 2))
+        
+        cv2.polylines(img, 
+              pts       = [pts_left], 
+              isClosed  = False, 
+              color     = [0, 255, 0],    # default red line color
+              thickness = 6)
+              
+        cv2.polylines(img, 
+              pts       = [pts_right], 
+              isClosed  = False, 
+              color     = [0, 255, 0],    # default red line color
+              thickness = 6)
+              
         return
     
 
@@ -1107,7 +1129,7 @@ class AdvancedLaneFinder:
             
         return self.center_offset 
         
-    def paintLaneArea(self, binary_warped):
+    def paintLaneArea(self, binary_warped, search_area=False):
         '''
         Paints the lane and area between lane onto an image
         
@@ -1132,27 +1154,75 @@ class AdvancedLaneFinder:
         #
         # paint lanes
         #
-        self.left_lane_line_finder.paint(img)
-        self.right_lane_line_finder.paint(img)
+        self.left_lane_line_finder.paint(img, search_area)
+        self.right_lane_line_finder.paint(img, search_area)
+        
+        if not search_area:
+            #
+            # paint area between lanes
+            #
+            
+            # get polygon for lane area by getting paint points of each lane finder
+            left_lane_paint_points = self.left_lane_line_finder.getPaintPoints()
+            
+            # need to "reverse" right points array so tail of pts_left is next to head of pts_right
+            # this ordering allows fillpoly to traverse around perimeter, 
+            # if the order of points is not flipud, the fill will look like a bowtie
+            right_lane_paint_points = self.right_lane_line_finder.getPaintPoints(flipud=True)
+            
+            if left_lane_paint_points is not None and right_lane_paint_points is not None:
+                # combaine paintpoints into a polygon
+                lane_area_paint_pts = np.hstack((left_lane_paint_points, right_lane_paint_points))
 
-        #
-        # paint area between lanes
-        #
-        
-        # get polygon for lane area by getting paint points of each lane finder
-        left_lane_paint_points = self.left_lane_line_finder.getPaintPoints()
-        
-        # need to "reverse" right points array so tail of pts_left is next to head of pts_right
-        # this ordering allows fillpoly to traverse around perimeter, 
-        # if the order of points is not flipud, the fill will look like a bowtie
-        right_lane_paint_points = self.right_lane_line_finder.getPaintPoints(flipud=True)
-        
-        if left_lane_paint_points is not None and right_lane_paint_points is not None:
-            # combaine paintpoints into a polygon
-            lane_area_paint_pts = np.hstack((left_lane_paint_points, right_lane_paint_points))
-
-            # paint the lane area
-            cv2.fillPoly(img, lane_area_paint_pts, [0,255,0])
+                # paint the lane area
+                cv2.fillPoly(img, lane_area_paint_pts, [0,255,0])
             
         return img, self.radius(), self.centerOffset()
         
+        
+
+#
+# Demonstration functions
+#
+import alf_cam
+import alf_enh
+import alf_war
+
+def demoLaneSearch(img):
+
+    cam  = alf_cam.Camera()
+    cam.calibrate()
+    
+    enh  = alf_enh.Enhancer()
+    enh.setParams(40, 57, 220, 201)
+    
+    war  = alf_war.ImageWarper()
+    war.calibrate()
+    
+    alf  = AdvancedLaneFinder()    
+    alf.setParams(50, 3, 12, 0.9)
+    
+    img_undistorted      = cam.undistort(img)
+    binary               = enh.enhance(img_undistorted)    
+    binary_warped        = war.warpPerspective(binary)
+    lane_area1, rad, off = alf.paintLaneArea(binary_warped, True)
+    lane_area2, rad, off = alf.paintLaneArea(binary_warped, True)
+    lane_area3, rad, off = alf.paintLaneArea(binary_warped)
+    
+    plt.figure(figsize=(40,20))
+    
+    ax1 = plt.subplot(311)
+    ax1.imshow(lane_area1)
+    ax1.set_title('Sliding Window')
+    
+    ax2 = plt.subplot(312)
+    ax2.imshow(lane_area2)
+    ax2.set_title('Linear Window')
+    
+    ax3 = plt.subplot(313)
+    ax3.imshow(lane_area3)
+    ax3.set_title('Lane Area')
+    
+    return
+    
+    

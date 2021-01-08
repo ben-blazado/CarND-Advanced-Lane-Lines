@@ -123,4 +123,29 @@ class Enhancer:
         
         return sobel_mask | lane_mask
         
+#
+# Demonstration functions
+#
+
+def demoEnhance(img):
+    
+    enh = Enhancer()
+    enh.setParams(40, 57, 220, 201)
+    mask = enh.enhance(img)
+    
+    
+    plt.figure(figsize=(14,6))
+    
+    ax1 = plt.subplot(121)
+    ax1.imshow(img, cmap='gray')
+    ax1.set_title('Original Image')
+    
+    ax2 = plt.subplot(122)
+    ax2.imshow(mask, cmap='gray')
+    ax2.set_title('Edge and Color Mask')    
+    
+    return
+
+
+        
         

@@ -24,11 +24,15 @@ class TopDownWarperCalibrationSet:
         
         #--- src and dst points for perspective transformations
         #--- coordinages were derived from manual measurement
-        self.src_points = np.float32 ([[592, 451], [688, 451],  [1123, 719], [191, 719]])
-        self.dst_points = np.float32 ([[291,   0], [1023,   0], [1023, 719], [291, 719]])
+        self.src_points = np.float32 ([[592, 451], [688, 451],  [1089, 719], [191, 719]])
+        self.dst_points = np.float32 ([[391,   0], [923,   0],  [923, 719], [391, 719]])
+        
         
         '''
         Older src and dest points that worked but not as good as final
+        self.src_points = np.float32 ([[592, 451], [688, 451],  [1123, 719], [191, 719]])
+        self.dst_points = np.float32 ([[291,   0], [1023,   0], [1023, 719], [291, 719]])
+
         
         self.src_points = np.float32 ([[592, 451], [688, 451], [1123, 719], [191, 719]])
         self.dst_points = np.float32 ([[191,   0], [1123,  0], [1123, 719], [211, 719]])
@@ -39,7 +43,29 @@ class TopDownWarperCalibrationSet:
         
         return
     
-    def showPoints(self):
+    def drawSrc(self, img):
+        '''
+        Draws src points on img for verificaton.
+        '''
+        
+        pts = np.int32(np.copy(np.append(self.src_points, self.src_points[0])))
+        pts = pts.reshape((-1, 1, 2))
+        cv2.polylines(img, [pts], False, (0,255,0), thickness=3)
+        
+        return img
+        
+    def drawDst(self, img):
+        '''
+        Draws dst points on img for verificaton.
+        '''
+        
+        pts = np.int32(np.copy(np.append(self.dst_points, self.dst_points[0])))
+        pts = pts.reshape((-1, 1, 2))
+        cv2.polylines(img, [pts], False, (0,255,0), thickness=3)
+        
+        return img
+    
+    def showPoints__old__(self):
         '''
         plots src and dst points on image calibration points were based off of
         '''
@@ -143,4 +169,58 @@ class ImageWarper:
                 flags=cv2.INTER_LINEAR)
         
         return img_unwarped
+        
+    def drawSrc(self, img):
+        '''
+        Draws source transformation region onto img.
+        '''
+    
+        self.calibration_set.drawSrc(img)
+        
+        return img
+        
+    def drawDst(self, img):
+        '''
+        Draws source transformation region onto img.
+        '''
+        
+        self.calibration_set.drawDst(img)
+        
+        return img
+        
+#
+# Demonstration functions
+#
+
+import alf_cam
+        
+def demoWarpImage(img):
+
+    cam = alf_cam.Camera()
+    cam.calibrate()
+    img_undist = cam.undistort(img)
+    
+    war = ImageWarper()
+    war.calibrate()
+    
+    img_orig = np.copy(img_undist)
+    img_orig = war.drawSrc(img_orig)
+    
+    img_warped = war.warpPerspective(img_undist)
+    img_warped = war.drawDst(img_warped)
+    
+    plt.figure(figsize=(14,6))
+    
+    ax1 = plt.subplot(121)
+    ax1.imshow(img_orig)
+    ax1.set_title('Original Image')
+    
+    ax2 = plt.subplot(122)
+    ax2.imshow(img_warped)
+    ax2.set_title('Warped Imaged')
+    
+    return
+
+    
+    
         
