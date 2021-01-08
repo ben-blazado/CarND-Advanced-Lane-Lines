@@ -10,10 +10,7 @@ class HUD:
     A simulated heads-up-display; composes the final image
     '''
     
-    def __init__(self, advanced_lane_finder, image_warper):
-        
-        self.alf = advanced_lane_finder
-        self.iw  = image_warper
+    def __init__(self):
         
         #--- text formatting params
         self.font = cv2.FONT_HERSHEY_SIMPLEX
@@ -23,28 +20,25 @@ class HUD:
         
         return
 
-    def blendImages(self, img_undistorted):
+    def blendImages(self, img_undistorted, unwarped_lanes):
         '''
         Annotates original road image with lane area found
         '''
     
-        lane_area_warped   = self.alf.paintLaneArea()
-        lane_area          = self.iw.unwarpPerspective(lane_area_warped)
-
         self.img_lane_area = cv2.addWeighted(img_undistorted, 
                                              alpha = 1.0, 
-                                             src2  = lane_area, 
+                                             src2  = unwarped_lanes, 
                                              beta  = 0.3, 
                                              gamma = 0.0)
         
         return
     
-    def putRadius(self):
+    def putRadius(self, rad):
         '''
         Draws radius of curvature indicator on image.
         '''
     
-        radius = self.alf.radius()
+        radius = rad
         if radius is None:
             rad_str = "Radius:"
         else:
@@ -55,12 +49,12 @@ class HUD:
         
         return
         
-    def putCenterOffset(self):
+    def putCenterOffset(self, off):
         '''
         Draws radius of curvature indicator on image.
         '''
         
-        center_offset = self.alf.centerOffset()
+        center_offset = off
         if center_offset is None:
             off_str = "Center offset "
         else:
@@ -78,12 +72,12 @@ class HUD:
         
         return
     
-    def compose(self, img_undistorted):
+    def compose(self, img_undistorted, unwarped_lanes, rad, off):
         
-        self.blendImages(img_undistorted)
+        self.blendImages(img_undistorted, unwarped_lanes)
         
-        self.putRadius()
-        self.putCenterOffset()
+        self.putRadius(rad)
+        self.putCenterOffset(off)
         
         return self.img_lane_area
 

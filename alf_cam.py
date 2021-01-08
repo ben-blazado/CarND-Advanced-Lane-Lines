@@ -139,10 +139,12 @@ class ChessboardCameraCalibrationSet:
         return
 
     def loadChessboardImages(self):
-        '''Loads chessboard images into self.chessboard_images; call before using find chessboard corners.'''
+        '''
+        Loads chessboard images into self.chessboard_images; 
+        call before using find chessboard corners.
+        '''
         
-        msg = "Loading chessboard images..."
-        self.logger.info (msg)
+        self.logger.info ("Loading chessboard images...")
         
         for filename_dim in self.filenames_dims:
             
@@ -153,22 +155,22 @@ class ChessboardCameraCalibrationSet:
             chessboard_image = ChessboardImage (self.basepath, filename, dims)
             self.chessboard_images.append(chessboard_image)
             
-        msg = "...completed loading chessboard images."
-        self.logger.info (msg)
+        self.logger.info ("...completed loading chessboard images.")
         
         return
     
     def findChessboardCorners(self):
         '''
-        Finds chessboard corners for each chessboard; call loadchessboardimages before this call.
+        Finds chessboard corners for each chessboard; call loadchessboardimages 
+        before this call.
         
         Notes:
         - Calls each chessboard image to find corners
-        - Collects chessboard image objpoints and imgpoints to self.objpoints and self.imgpoints
+        - Collects chessboard image objpoints and imgpoints to self.objpoints 
+        and self.imgpoints
         '''
 
-        msg = "Finding chessboard corners..."
-        self.logger.info (msg)
+        self.logger.info ("Finding chessboard corners...")
         
         for chessboard_image in self.chessboard_images:
             if chessboard_image.findChessboardCorners():
@@ -176,8 +178,7 @@ class ChessboardCameraCalibrationSet:
                 self.imgpoints.append (chessboard_image.imgpoints)
                 self.objpoints.append (chessboard_image.objpoints)
             
-        msg = "...completed finding chessboard corners."
-        self.logger.info (msg)
+        self.logger.info ("...completed finding chessboard corners.")
         
         return
     
@@ -186,7 +187,8 @@ class ChessboardCameraCalibrationSet:
         Returns the parameters needed to calibrate Camera.
         
         Returns:
-        - objpoints, imgpoints: objpoints and imgpoints generated from findChessboardCorners.
+        - objpoints, imgpoints: objpoints and imgpoints generated from 
+        findChessboardCorners.
         - image_shape: shape of image of chessboard images
         
         Notes:
@@ -200,7 +202,8 @@ class ChessboardCameraCalibrationSet:
 
     def showCorners(self, ncols=1):
         '''
-        Displays images of the chessboard with all chessboard corners annotated.
+        Displays images of the chessboard with all chessboard 
+        corners annotated.
         
         Params:
         - ncols: number of columns to fit all the images into.
@@ -253,14 +256,18 @@ class Camera:
         return
     
 
-    def calibrateCamera (self, calibration_set=None):
+    def calibrate(self, calibration_set=None):
         '''
-        Calculates the camera matrix and distortion coefficients used to correct distortion.
+        Calculates the camera matrix and distortion coefficients 
+        used to correct distortion.
         
         Params:
-        - calibration_set: a class with a function called getCalibrationParams that returns
-        objpoints, imgpoints, and image_shape used for camera calibration
+        - calibration_set: a class with a function called getCalibrationParams 
+        that returns objpoints, imgpoints, and image_shape used for camera 
+        calibration.
         '''
+        
+        self.logger.info("Calibrating...")
         
         if calibration_set is None:
             calibration_set = ChessboardCameraCalibrationSet()
@@ -268,14 +275,13 @@ class Camera:
         objpoints, imgpoints, self.image_shape = calibration_set.getCalibrationParams ()
         
         #--- rotation and translation vectors not used for this project
-        cal_found, self.mtx, self.dist, _, _ = cv2.calibrateCamera(objpoints, imgpoints, self.image_shape, None, None)
+        cal_found, self.mtx, self.dist, _, _ = cv2.calibrateCamera(objpoints, 
+                imgpoints, self.image_shape, None, None)
         
         if cal_found:
-            msg = "Camera calibrated."
-            self.logger.info(msg)            
+            self.logger.info("...calibrated.")            
         else:
-            msg = "Camera was not calibrated."
-            self.logger.warning(msg)            
+            self.logger.warning("...calibration failed.")            
         
         return
 
@@ -292,10 +298,10 @@ class Camera:
         
         Notes:
         - img_undist should then be fed to the LaneEnhancer 
-        
         '''
         
         img_undist = cv2.undistort(img, self.mtx, self.dist)
         
         return img_undist
-    
+        
+
