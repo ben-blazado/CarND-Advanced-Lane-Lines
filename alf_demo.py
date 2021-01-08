@@ -7,10 +7,6 @@ import alf_war
 import alf_llg
 import matplotlib.pyplot as plt
 
-#
-# Demonstration functions
-#
-
 
 def demoChessboardCorners():
     '''
