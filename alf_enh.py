@@ -37,7 +37,8 @@ class Enhancer:
         
         return
         
-    def setParams(self, sob_min_x=40, y_min_s=57, y_min_v=220, w_min_v=201):
+    def setParams(self, sob_min_x=40, y_min_s=57, y_min_v=220, 
+             w_max_s=25, w_min_v=201):
         '''
         Sets thresholds for masks.
         
@@ -51,6 +52,7 @@ class Enhancer:
         self.y_min_s = y_min_s
         self.y_min_v = y_min_v
         self.w_min_v = w_min_v
+        self.w_max_s = w_max_s
         
         return
 
@@ -69,16 +71,24 @@ class Enhancer:
         
         hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
 
+        h = hsv[:,:,0] # h-channel
         s = hsv[:,:,1] # s-channel
         v = hsv[:,:,2] # v-channel
         
         # mask for yellow lane
+        
         y_mask = np.zeros_like(s)
-        y_mask [( s > self.y_min_s) & (v > self.y_min_v)] = 1
+        y_h = (10 <= h) & (h <= 25)
+        y_s = s > self.y_min_s
+        y_v = v > self.y_min_v
+        y_mask [y_h & y_s & y_v] = 1
+        # y_mask [y_s & y_v] = 1
             
         # mask for white lane
         w_mask = np.zeros_like(s)
-        w_mask [v > self.w_min_v] = 1
+        w_s = s < self.w_max_s
+        w_v = self.w_min_v < v
+        w_mask [w_s & w_v] = 1
         
         return y_mask | w_mask
     
@@ -121,7 +131,7 @@ class Enhancer:
 
         lane_mask = self.laneMask(img) 
         
-        return sobel_mask | lane_mask
+        return sobel_mask & lane_mask
 
 
 

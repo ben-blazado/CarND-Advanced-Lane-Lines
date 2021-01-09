@@ -24,15 +24,17 @@ class TopDownWarperCalibrationSet:
         
         #--- src and dst points for perspective transformations
         #--- coordinages were derived from manual measurement
-        self.src_points = np.float32 ([[592, 451], [688, 451],  [1089, 719], [191, 719]])
-        self.dst_points = np.float32 ([[391,   0], [923,   0],  [923, 719], [391, 719]])
-        
+        self.src_points = np.float32 ([[592, 451], [686, 451],  [1085, 719], [197, 719]])
+        self.dst_points = np.float32 ([[342,   0], [936,   0],  [936, 719], [342, 719]])
         
         '''
         Older src and dest points that worked but not as good as final
+        
+        self.src_points = np.float32 ([[592, 451], [688, 451],  [1089, 719], [191, 719]])
+        self.dst_points = np.float32 ([[391,   0], [923,   0],  [923, 719], [391, 719]])
+        
         self.src_points = np.float32 ([[592, 451], [688, 451],  [1123, 719], [191, 719]])
         self.dst_points = np.float32 ([[291,   0], [1023,   0], [1023, 719], [291, 719]])
-
         
         self.src_points = np.float32 ([[592, 451], [688, 451], [1123, 719], [191, 719]])
         self.dst_points = np.float32 ([[191,   0], [1123,  0], [1123, 719], [211, 719]])
