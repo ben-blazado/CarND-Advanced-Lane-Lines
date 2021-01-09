@@ -44,19 +44,19 @@ class Controller:
         Params:
         - params: a dict that the following keys used to set parameters
         for enhancer and advanced lane finder:
-            'sob_min_x'
-            'y_min_s'
-            'y_min_v'
-            'w_max_s'
-            'w_min_v'
-            'max_coeffs'
-            'min_samples'
-            'N'
-            'coeff_bias'
-            'clip_start'
-            'clip_end'
-            'stage'
-            'output'
+            'sob_min_x'   : minimum sobel x gradient threshold
+            'y_min_s'     : min saturation (hsv) for yellow lane
+            'y_min_v'     : min value (hsv) for yellow lane
+            'w_max_s'     : MAX saturation (hsv) for white lane
+            'w_min_v'     : min value (hsv) for white lane
+            'max_coeffs'  : num prev coeffs (lines) to keep for smoothing
+            'min_samples' : num of lines needed to start smoothing
+            'N'           : num of std devs from mean to consider a good fit
+            'coeff_bias'  : amount of bias (0 to 0.99) for current  line
+            'clip_start'  : time to start processing clip
+            'clip_end'    : tome to end processing clip
+            'stage'       : stage of pipeline to output  (1..5)
+            'output'      : filename of output file
             
         Notes:
         - Default params for project_video.mp4:
@@ -132,8 +132,6 @@ class Controller:
             return cv2.cvtColor(result * 255, cv2.COLOR_GRAY2RGB)
         else:
             return result
-        
-        # return final_img
     
     def processVideo(self, params):
     

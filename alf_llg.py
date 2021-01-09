@@ -479,9 +479,9 @@ class SlidingWindow:
                 new_x_mid = np.int(np.average(points_found_x))
                 self.x_dir = new_x_mid - self.x_mid
                 self.x_mid = new_x_mid
-            #elif (len(points_found_x) < self.numpoints_found_thresh // 3 
-            #        and self.x_dir is not None):
-            #    self.x_mid += self.x_dir
+            elif (len(points_found_x) < self.numpoints_found_thresh // 3 
+                    and self.x_dir is not None):
+                self.x_mid += self.x_dir
                 
             self.slideUp()
         
@@ -1086,15 +1086,23 @@ class AdvancedLaneFinder:
         t  += radius_right if radius_right is not None else 0
         n  += 1 if radius_right is not None else 0
         
-        msg = "Radius left and right: {:.3f}, {:.3f}"
+        if radius_left is not None and radius_right is not None:
+            msg = "Radius left and right: {:.3f}, {:.3f}"
+        else:
+            msg = "Radius left and right: {}, {}"
         self.logger.debug(msg.format(radius_left, radius_right))
         if n > 0:
             self.avg_radius = t / n
         else:
             self.avg_radius = None
 
-        msg = "Avg Radius: {:.3f}."
+        
+        if self.avg_radius is not None:
+            msg = "Avg Radius: {:.3f}."
+        else:
+            msg = "Avg Radius: {}."
         self.logger.debug(msg.format(self.avg_radius))
+            
             
         return self.avg_radius
     
@@ -1133,6 +1141,13 @@ class AdvancedLaneFinder:
         '''
         Paints the lane and area between lane onto an image
         
+        Params:
+        - binary_warped: top down binary image view of possible lane pixels
+        - search_area: if True, paint only the search areas (i.e. sliding
+        or linear window search area, activated pixels, smoothed lane lines, 
+        else paint the lane areas (i.e. smooothed lane lines and area in
+        between lane lines)
+        
         Returns:
         - RGB image of lane area painted
         - radius of curvature
@@ -1162,17 +1177,22 @@ class AdvancedLaneFinder:
             # paint area between lanes
             #
             
-            # get polygon for lane area by getting paint points of each lane finder
+            # get polygon for lane area by getting paint points of 
+            # each lane finder
             left_lane_paint_points = self.left_lane_line_finder.getPaintPoints()
             
-            # need to "reverse" right points array so tail of pts_left is next to head of pts_right
-            # this ordering allows fillpoly to traverse around perimeter, 
-            # if the order of points is not flipud, the fill will look like a bowtie
-            right_lane_paint_points = self.right_lane_line_finder.getPaintPoints(flipud=True)
+            # need to "reverse" right points array so tail of pts_left is 
+            # next to head of pts_right this ordering allows fillpoly to 
+            # traverse around perimeter, if the order of points is not flipud, 
+            # the fill will look like a bowtie
+            right_lane_paint_points = (self.right_lane_line_finder 
+                    .getPaintPoints(flipud=True))
             
-            if left_lane_paint_points is not None and right_lane_paint_points is not None:
+            if (left_lane_paint_points is not None 
+                    and right_lane_paint_points is not None):
                 # combaine paintpoints into a polygon
-                lane_area_paint_pts = np.hstack((left_lane_paint_points, right_lane_paint_points))
+                lane_area_paint_pts = np.hstack((left_lane_paint_points, 
+                        right_lane_paint_points))
 
                 # paint the lane area
                 cv2.fillPoly(img, lane_area_paint_pts, [0,255,0])
