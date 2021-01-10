@@ -238,7 +238,6 @@ class Line:
         # generate y points from 0 to img_ht, cast to int32 for ease of plotting
         self.y = np.int32 (np.array([y for y in range(img_ht)]))
 
-        # TODO: what if x < 0 or x > img wid 
         # calculate points based on x, cast to int32 for ease of plotting
         self.x = np.int32 (self.coeffs[0] * self.y**2 + self.coeffs[1] * self.y 
                     + self.coeffs[2])
@@ -964,8 +963,6 @@ class LeftLaneLineFinder(LaneLineFinder):
 
     def updateXStart(self):
     
-        # TODO: what of NO points found
-        
         # get bottom half of image for histogram
         bottom_half = self.binary_warped[self.binary_warped.shape[0] // 2:,:]
         histogram = np.sum(bottom_half, axis=0)
@@ -1024,8 +1021,6 @@ class AdvancedLaneFinder:
     
     def __init__(self):
         
-        # TODO: calculate fps
-        
         self.logger = logging.getLogger("AdvancedLaneFinder")
         
         self.left_lane_line_finder  = LeftLaneLineFinder()
@@ -1056,12 +1051,9 @@ class AdvancedLaneFinder:
     
     def findLanes(self, binary_warped):
         
-        msg = "---------------------------"
-        self.logger.debug(msg)
-        msg = "Finding lanes in new frame."
-        self.logger.debug(msg)
-        msg = "---------------------------"
-        self.logger.debug(msg)
+        self.logger.debug("---------------------------")
+        self.logger.debug("Finding lanes in new frame.")
+        self.logger.debug("---------------------------")
         
         self.binary_warped = binary_warped
         
@@ -1095,14 +1087,12 @@ class AdvancedLaneFinder:
             self.avg_radius = t / n
         else:
             self.avg_radius = None
-
         
         if self.avg_radius is not None:
             msg = "Avg Radius: {:.3f}."
         else:
             msg = "Avg Radius: {}."
         self.logger.debug(msg.format(self.avg_radius))
-            
             
         return self.avg_radius
     
