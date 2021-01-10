@@ -22,11 +22,13 @@ For this project, the pipeline processes each frame of the road video as an indi
 - Image transformation that restores original perspective of lane area
 - Recomposing original undistorted image with lane area
 
-```
+The main pipeline is Controller.processImg() in **alf_con.py***
+```python
 class Controller:
-	...
-	def processImg(self, img):
-		...
+...
+    def processImg(self, img):
+	    ...
+        srch_only           = (self.stage == 3)
 	    img_undistorted     = self.cam.undistort(img)
 	    binary              = self.enh.enhance(img_undistorted)    
 	    binary_warped       = self.war.warpPerspective(binary)
@@ -34,14 +36,14 @@ class Controller:
 	    unwarped_lanes      = self.war.unwarpPerspective(lane_area)
 	    final_img           = self.hud.compose(img_undistorted, 
 	                                unwarped_lanes, rad, off)
-		...
+        ...
 ```
-*The main pipeline is in **alf_con.py** (Controller.processImg())*
 
 ## Distortion correction
 Ensuring that straight lines in the real world appear straight in image space prevents false curves from being processed by later stages of the pipeline.  The opencv function `findChessboardCorners()` was used to calculate object points and image points representing the inner corners of multiple chessboard images. These data were used to  compute the camera matrix and distortion coefficients. Calibration is performed using the opencv function `calibrateCamera()`, then `undistort()` is applied to the image to correct for distortion.
 
-```
+Finding chessboard corners to create objpoints and imgpoints is in `alf_cam.py`:
+```python
 class ChessboardImage:
 		...
     def findChessboardCorners(self):
@@ -57,11 +59,12 @@ class ChessboardImage:
 			...
         return corners_found
 ```
-*Finding chessboard corners is in **alf_cam.py** (ChessboardImage())*
-
+Chessboard corners highlighted:
 ![Chessboard corners found](output_images/wup_corners_calibration13.png)
-*An image highlighting chessboard corners found using `findChessboardCorners()`*
-```
+
+
+Camera calibration is in `alf_cam.py`:
+```python
 class Camera:
 ...
     def calibrate(self, calibration_set=None):
@@ -77,7 +80,7 @@ class Camera:
 ...
         return
 ```
-*Camera calibration is **alf_cam.py** (Camera.calibrate())*
+
 ![](output_images/camera_calibrate.png)
 
 
@@ -161,5 +164,8 @@ Because the image processed by the function `test_highlight_yellow_and_white()` 
 	- time to process each frame to understand pipeline performance
 - Use CNN techniques to identify the lanes
 - Draw continuous curve for curved lanes
+
+> Written with [StackEdit](https://stackedit.io/).
+
 
 > Written with [StackEdit](https://stackedit.io/).
