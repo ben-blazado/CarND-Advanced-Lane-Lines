@@ -284,8 +284,7 @@ class Camera:
             self.logger.warning("...calibration failed.")            
         
         return
-
-    
+        
     def undistort(self, img):
         '''
         corrects image distortion
@@ -299,9 +298,45 @@ class Camera:
         Notes:
         - img_undist should then be fed to the LaneEnhancer 
         '''
-        
         img_undist = cv2.undistort(img, self.mtx, self.dist)
         
         return img_undist
         
+    def stretch(self, img):
+        '''
+        Experimental only. Stretches/normalizes histogram for s and v channels
+        
+        Notes:
+        - Not used for this project.
+        '''
+    
+        def stretchChan(c):
+            avg = np.average(c)
+            lo = c.min()
+            hi = c.max()
+
+            below = c[c < avg]
+            below = 128 - 128 * (avg - below)/(avg - lo)
+            c[c < avg] = np.clip(below, 0, 255)
+
+            above = c[c >= avg]
+            above = 128 + 128 * (above - avg)/(hi - avg)
+            c[c >= avg] = np.clip(above, 0, 255)
+            
+            return
+    
+        hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+        ht = hsv.shape[0]
+        mid = ht // 2
+
+        s = hsv[mid:ht,:,1] # s-channel
+        v = hsv[mid:ht,:,2] # v-channel
+        
+        stretchChan(s)
+        stretchChan(v)
+        
+        rgb = cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB)
+        
+        return rgb
+    
 

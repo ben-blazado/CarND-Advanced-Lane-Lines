@@ -55,7 +55,7 @@ class Enhancer:
         self.w_max_s = w_max_s
         
         return
-
+        
     def laneMask(self, img):
         '''
         Returns a mask for the yellow and white lanes from a road image.
@@ -76,19 +76,17 @@ class Enhancer:
         v = hsv[:,:,2] # v-channel
         
         # mask for yellow lane
-        
         y_mask = np.zeros_like(s)
         y_h = (10 <= h) & (h <= 25)
         y_s = s > self.y_min_s
         y_v = v > self.y_min_v
-        y_mask [y_h & y_s & y_v] = 1
-        # y_mask [y_s & y_v] = 1
+        y_mask [(y_h & y_s & y_v)] = 1
             
         # mask for white lane
         w_mask = np.zeros_like(s)
         w_s = s < self.w_max_s
         w_v = self.w_min_v < v
-        w_mask [w_s & w_v] = 1
+        w_mask[(w_s & w_v)] = 1
         
         return y_mask | w_mask
     
@@ -132,8 +130,3 @@ class Enhancer:
         lane_mask = self.laneMask(img) 
         
         return sobel_mask & lane_mask
-
-
-
-        
-        

@@ -120,9 +120,7 @@ class Controller:
         if (self.frame_number % self.interval) == 0:
             msg = "Video processing in progress: {}% complete."
             self.logger.info (msg.format(pct_complete))
-                                    
         
-        # change result to one of the outputs above to view
         pipeline = [img_undistorted, binary, binary_warped, lane_area,
                 unwarped_lanes, final_img]
         result = pipeline[self.stage]
