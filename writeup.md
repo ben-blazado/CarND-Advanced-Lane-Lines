@@ -27,16 +27,15 @@ The main pipeline is Controller.processImg() in **alf_con.py***
 class Controller:
 ...
     def processImg(self, img):
-	    ...
-        srch_only           = (self.stage == 3)
+...
+		srch_only           = (self.stage == 3)
 	    img_undistorted     = self.cam.undistort(img)
 	    binary              = self.enh.enhance(img_undistorted)    
 	    binary_warped       = self.war.warpPerspective(binary)
 	    lane_area, rad, off = self.alf.paintLaneArea(binary_warped, srch_only)
 	    unwarped_lanes      = self.war.unwarpPerspective(lane_area)
-	    final_img           = self.hud.compose(img_undistorted, 
-	                                unwarped_lanes, rad, off)
-        ...
+	    final_img           = self.hud.compose(img_undistorted, unwarped_lanes, rad, off)
+...
 ```
 
 ## Distortion correction
@@ -45,21 +44,21 @@ Ensuring that straight lines in the real world appear straight in image space pr
 Finding chessboard corners to create objpoints and imgpoints is in `alf_cam.py`:
 ```python
 class ChessboardImage:
-		...
+...
     def findChessboardCorners(self):
-		...
+...
         gray = cv2.cvtColor(self.img, cv2.COLOR_RGB2GRAY)
         corners_found, corners = cv2.findChessboardCorners(gray, (self.xdim, self.ydim), flags=None)
         
         if corners_found:
-	        ...
+...
             self.objpoints = np.zeros(shape=(self.xdim * self.ydim, 3), dtype=np.float32)
             self.objpoints[:, :2] = np.array([(x, y) for y in range(self.ydim) for x in range(self.xdim)])
 	        self.imgpoints = corners
-			...
+...
         return corners_found
 ```
-Chessboard corners highlighted:
+
 ![Chessboard corners found](output_images/wup_corners_calibration13.png)
 
 
