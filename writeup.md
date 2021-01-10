@@ -59,7 +59,7 @@ class ChessboardImage:
 ```
 *Finding chessboard corners is in **alf_cam.py** (ChessboardImage())*
 
-![Chessboard corners found](output_images\corners-calibration13.png)
+![Chessboard corners found](output_images/wup_corners_calibration13.png)
 *An image highlighting chessboard corners found using `findChessboardCorners()`*
 ```
 class Camera:
@@ -78,7 +78,7 @@ class Camera:
         return
 ```
 *Camera calibration is **alf_cam.py** (Camera.calibrate())*
-![](output_images\camera_calibrate.png)
+![](output_images/camera_calibrate.png)
 
 
 
@@ -161,8 +161,5 @@ Because the image processed by the function `test_highlight_yellow_and_white()` 
 	- time to process each frame to understand pipeline performance
 - Use CNN techniques to identify the lanes
 - Draw continuous curve for curved lanes
-
-> Written with [StackEdit](https://stackedit.io/).
-
 
 > Written with [StackEdit](https://stackedit.io/).
