@@ -9,25 +9,25 @@ Implement a video processing pipeline that detects road lanes.
   - [Camera Calibration](#camera-calibration)
 - [Image Enhancement](#image-enhancement)
   - [Sobel X-Gradient Masking](#sobel-x-gradient-masking)
-  - [HSV Color Masking](#HSV-Color-Masking)
-  - [Combining Masks](#Combining-Masks)
+  - [HSV Color Masking](#hsv-color-masking)
+  - [Combining Masks](#combining-masks)
 - [Top-down View](#top-down-view)
-- [Lane Pixel Identification and Line Fitting](#Lane-Pixel-Identification-and-Line-Fitting)
-  - [Sliding Window Search Area](#Sliding-Window-Search-Area)
-  - [Line Fitting](#Line-Fitting)
-  - [Smoothing](#Smoothing)
-  - [Sliding Window Search Area Detections](#Sliding-Window-Search-Area-Detections)
-  - [Linear Window Search Area](#Linear-Window-Search-Area)
-  - [Linear Window Search Area Detections](#Linear-Window-Search-Area-Detections)
-  - [Lane Area](#Lane-Area)
+- [Lane Pixel Identification and Line Fitting](#lane-pixel-identification-and-line-fitting)
+  - [Sliding Window Search Area](#sliding-window-search-area)
+  - [Line Fitting](#line-fitting)
+  - [Smoothing](#smoothing)
+  - [Sliding Window Search Area Detections](#sliding-window-search-area-detections)
+  - [Linear Window Search Area](#linear-window-search-area)
+  - [Linear Window Search Area Detections](#linear-window-search-area-detections)
+  - [Lane Area](#lane-area)
 - [Radius of Curvature and Center Offset](#radius-of-curvature-and-center-offset)
-  - [Scaling Line Coefficients to Real World](#Scaling-Line-Coefficients-to-Real-World)
-  - [Center Offset](#Center-Offset)
-- [Final image composition](#Final-image-composition)
-- [The Pipeline](#The-Pipeline)
+  - [Scaling Line Coefficients to Real World](#scaling-line-coefficients-to-real-world)
+  - [Center Offset](#center-offset)
+- [Final Image composition](#final-image-composition)
+- [The Pipeline](#the-pipeline)
   - [Setting Parameters](#setting-parameters)
-  - [Pipeline Control and Sequencing](#Pipeline-Control-and-Sequencing)
-  - [Project Video](#Project-Video)
+  - [Pipeline Control and Sequencing](#pipeline-control-and-sequencing)
+  - [Project Video](#project-video)
   - [Pipeline Struggles with, but Completes, Challenge Video...](#pipeline-struggles-with-but-completes-challenge-video)
   - [...and Fails Miserably on Harder Challenge Video](#and-fails-miserably-on-harder-challenge-video)
 - [Limitations, Issues, Challenges](#limitations-issues-challenges)
@@ -629,7 +629,7 @@ class AdvancedLaneFinder:
 
 ```
 
-## Final image composition
+## Final Image composition
 
 Because the lane area is in the top down perspective, the `Controller` reuses the `Warper` component to unwarp the lane area. 
 
