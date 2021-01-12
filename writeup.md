@@ -595,7 +595,7 @@ class AdvancedLaneFinder:
 
 ## Final image composition
 
-Because the lane area is in the top down perspective, the main controller reuses the warper component to unwarped the lane area, then uses HUD (for Heads Up Display) component to blend the lane area with the original *undistorted* image, and write the radius of curvature and center offset.
+Because the lane area is in the top down perspective, the main controller reuses the warper component to unwarped the lane area. 
 
 ```
 
@@ -634,6 +634,8 @@ class Warper:
         
         return img_unwarped
 ```
+
+The controller then uses HUD (for Heads Up Display) component to blend the lane area with the original *undistorted* image, and write the radius of curvature and center offset.
 
 ```
 ###
