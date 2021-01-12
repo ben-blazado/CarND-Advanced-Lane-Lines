@@ -9,6 +9,7 @@ Implement a video processing pipeline that detects road lanes.
   - [Camera Calibration](#camera-calibration)
 - [Image Enhancement](#image-enhancement)
   - [Sobel X-Gradient Masking](#sobel-x-gradient-masking)
+  - [HSV Color Masking](#HSV-Color-Masking)
 
 
 ## Goals
