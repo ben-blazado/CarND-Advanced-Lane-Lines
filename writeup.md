@@ -28,7 +28,7 @@ Implement a video processing pipeline that detects road lanes.
   - [Setting Parameters](#Setting-Parameters)
   - [Pipeline Control and Sequencing](#Pipeline-Control-and-Sequencing)
   - [Project Video](#Project-Video)
-  - [Pipeline Struggles with, but Completes, Challenge Video...](Pipeline-Struggles-with-but-Completes-Challenge-Video)
+  - [Pipeline Struggles with, but Completes, Challenge Video...](Pipeline-Struggles-with-but-Completes-Challenge-Video...)
   - [...and Fails Miserably on Harder Challenge Video](#and-Fails-Miserably-on-Harder-Challenge-Video)
 - [Limitations, Issues, Challenges](#Limitations-Issues-Challenges)
 - [Areas of Improvement](#Areas-of-Improvement)
