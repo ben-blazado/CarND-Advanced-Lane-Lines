@@ -10,7 +10,29 @@ Implement a video processing pipeline that detects road lanes.
 - [Image Enhancement](#image-enhancement)
   - [Sobel X-Gradient Masking](#sobel-x-gradient-masking)
   - [HSV Color Masking](#HSV-Color-Masking)
-
+  - [Combining Masks](#Combining-Masks)
+- [Top-down View](#Top-down-View)
+- [Lane Pixel Identification and Line Fitting](#Lane-Pixel-Identification-and-Line-Fitting)
+  - [Sliding Window Search Area](#Sliding-Window-Search-Area)
+  - [Line Fitting](#Line-Fitting)
+  - [Smoothing](#Smoothing)
+  - [Sliding Window Search Area Detections](#Sliding-Window-Search-Area-Detections)
+  - [Linear Window Search Area](#Linear-Window-Search-Area)
+  - [Linear Window Search Area Detections](#Linear-Window-Search-Area-Detections)
+  - [Lane Area](#Lane-Area)
+- [Radius of Curvature and Center Offset](#Radius-of-Curvature-and-Center-Offset)
+  - [Scaling Line Coefficients to Real World](#Scaling-Line-Coefficients-to-Real-World)
+  - [Center Offset](#Center-Offset)
+- [Final image composition](#Final-image-composition)
+- [The Pipeline](#The-Pipeline)
+  - [Setting Parameters](#Setting-Parameters)
+  - [Pipeline Control and Sequencing](#Pipeline-Control-and-Sequencing)
+  - [Project Video](#Project-Video)
+  - [Pipeline Struggles with, but Completes, Challenge Video...](Pipeline-Struggles-with-but-Completes-Challenge-Video)
+  - [...and Fails Miserably on Harder Challenge Video](#and-Fails-Miserably-on-Harder-Challenge-Video)
+- [Limitations, Issues, Challenges](#Limitations-Issues-Challenges)
+- [Areas of Improvement](#Areas-of-Improvement)
+    
 
 ## Goals
 - Correct image distortion by computing the camera matrix and distortion coefficients.
