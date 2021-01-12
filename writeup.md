@@ -770,7 +770,7 @@ The tight curves, brush and trees on either side of the road, dashboard glare, v
 
 ## Areas of Improvement
 - Investigate use of CNN/YOLO to identify lane and edges of lane (and traffic!).
-- Identify center of road instead of lane markers.
+- Change algorithm to search front area of vehicle and search outward to sides until a "road border" is reached to identify the left and right limits of the road.
 - Dynamically adjust pipeline parameters. Perhaps take the histogram of the bottom half of frame and stretch the HSV values to achieve better color, light and shadow separation.
 - Use some kind of A* search for lane pixels where search area is biased in direction of where more pixels are located.
 - Sensor-related: Use of a polarizing filter on camera to help with glare. Use constant aperture (don't go full auto on camera); mount camera on front of car sensor improvements; use lens hood; use some kind of 3-axis stabilization for sensor
