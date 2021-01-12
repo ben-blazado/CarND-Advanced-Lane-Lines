@@ -1,17 +1,17 @@
 7-JAN-2021
 # Advanced Computer Lane Finding 
-Implement a video processing pipeline that detects road lanes
+Implement a video processing pipeline that detects road lanes.
 
 
 ## Goals
-- Correct image distortion by computing the camera matrix and distortion coefficients
-- Enhance lane pixels by applying  color transforms and gradients 
-- Apply a perspective transform to rectify image to a to-down view of road.
-- Identify lane pixels and fit into a polynomial to represent a lane
-- Calculate a radius of curvature and position of vehicle with respect to center
-- Compose an image that clearly identifies the lane area
-- Fulfill a requirement of the Udacity Self-Driving Car Engineer Nanodegree Program
-- Practice using the following: opencv, classes, modules, UML sketching, GRASP, and docstring
+- Correct image distortion by computing the camera matrix and distortion coefficients.
+- Enhance lane pixels by applying  color transforms and gradients. 
+- Apply a perspective transform to rectify image to a top-down view of road.
+- Identify lane pixels and fit into a 2-degree polynomial to represent a lane.
+- Calculate a radius of curvature and position of vehicle with respect to center.
+- Compose an image that clearly identifies the lane area.
+- Fulfill a requirement of the Udacity Self-Driving Car Engineer Nanodegree Program.
+- Practice using the following: opencv, classes, modules, UML sketching, GRASP, and docstring.
 
 ## Distortion correction
 Ensuring that straight lines in the real world appear straight in image space prevents false curves from being processed by later stages of the pipeline.
@@ -89,12 +89,12 @@ class Camera:
         return img_undist	
 ```
 
-Image below verifies camera calibration. The apparent curve of straight lines due to lens distortion is corrected to appear straight in the output image.
+Image below verifies camera calibration. The apparent curve of straight lines due to lens distortion is corrected to appear straight in the output image:
 
 ![](output_images/wup_camera_calibrate.png)
 
 ## Image Enhancement
-Edge detection and color transformation is applied to the image corrected for distortion. Sobel X-gradient and masks pickout yellow and white lanes. 
+Edge detection and color transformation is applied to the image corrected for distortion. Combining Sobel X-gradient and color space masks help pickout yellow and white lanes. 
 
 ### Sobel X-Gradient Masking
 
@@ -124,7 +124,7 @@ class Enhancer:
 
 ### HSV Color Masking
 
-The color transforms were done in the hsv colorspace because the image editing tools used to idenfity the color values worked in the hsv space. Yellow and white lane masks are combined with a bitwise OR:
+The color transforms were done in the HSV colorspace because the image editing tools used to idenfity the color values worked in the HSV space. Yellow and white lane masks are combined with a bitwise OR:
 
 ```
 ###
@@ -217,11 +217,11 @@ class Warper:
 
 ## Lane Pixel Identification and Line Fitting
 
-A "sliding window" search area, and, when a line was successfully found in a previous frame, a "linear window" was used to gather pixels associated with a lane. It used the top down binary image from warp (perspective transformation) stage to identify lane pixels.
+A "sliding window" search area and, when a line was successfully found in a previous frame, a "linear window" was used to gather pixels associated with a lane. It used the top down binary image from the warp (perspective transformation) stage to identify lane pixels.
 
 ### Sliding Window Search Area
 
-The "sliding window" search area defined a rectagle, `(x1, y1, x2, y2)`, which starts at the base of the image and progressively works up to gather lane pixels within the boundaries of the rectangle. The lane pixels are gathers in separate x and y position arrays `lane_points_x` and `lane_points_`. The horizontal (x) position of the rectangle is adjusted to the average x position of all pixels found if a threshold was reached. Also, if not enough pixels were found the window is slid in the last direction of found pixels so that it just does not search upwards. The sliding stops once it reaches the top. 
+The "sliding window" search area defined a rectangle, `(x1, y1, x2, y2)`, which starts at the base of the image and progressively "slides" up the image to gather lane pixels within the boundaries of the rectangle. The lane pixels are gathers in separate x and y position arrays `lane_points_x` and `lane_points_`. The horizontal (x) position of the rectangle is adjusted to the average x position of all pixels found if a threshold number of points was reached. Also, if not enough pixels were found the window is slid in the last direction of found pixels so that it just does not slide upwards. Rather, it slides in the direction the previous window slid. The sliding stops once it reaches the top (when y1 == 0). 
 
 ```
 ###
@@ -314,7 +314,7 @@ class Line:
 
 ### Smoothing
 
-Once a fit has been determined, the line goes through a smoothing process which adjusts the coeefficients to a weighted average of previous coefficients. If the fit is not within a specified `N` standard deviations of the average of previous coeffs, the most recent set of coefficients is used for the current line:
+Once a fit has been determined, the line goes through a smoothing process which adjusts the coefficients to a weighted average of previous coefficients. If the fit is not within a specified `N` standard deviations of the average of previous coeffs, the most recent set of coefficients is used for the current line:
 
 ```
 ###
@@ -393,13 +393,13 @@ class Line:
 
 ### Sliding Window Search Area Detections
 
-The coefficients of the line can then be used to represent the real world lane. Below is an example of the sliding windows, detected pixels, and lane lines:
+The coefficients of the line can then be used to represent the real world lane. Below is an example of the sliding windows (green), detected pixels (yellow and blue), and lane lines (red):
 
 ![](output_images/wup_sliding_window.png)
 
 ### Linear Window Search Area
 
-If a line has been found in a previous frame, a linear window search area is used. The borders of the search area are simply  offsets to either side of the line, `(LinearWindow.x1, LinearWindow.x2)`. Pixels are simply gathered for those that are withion these borders:
+If a line has been found in a previous frame, a linear window search area is used. The borders of the search area are simply  offsets to either side of the line, `(LinearWindow.x1, LinearWindow.x2)`. Pixels are simply gathered for those that are within these linear borders:
 
 ```
 ### 
@@ -444,11 +444,11 @@ With both lane lines detected, a polygon is formed which is filled to highlight 
 
 ## Radius of Curvature and Center Offset
 
-To calculate the radius of curvature, the suggestion in Lesson 8 - Measuring Curvature II is used which allows us to skip doing another line fit since we are scaling the image space to real world space. The challenge is to derive the real world line coefficients from the existing coefficients in the pixel space (scale to meters from pixels).
+To calculate the radius of curvature, the suggestion in *Lesson 8 - Measuring Curvature II* is used which allows us to skip doing another line fit since we are scaling the image space to real world space. The challenge is to derive the real world line coefficients from the existing coefficients in the pixel space (scale to meters from pixels).
 
 ### Scaling Line Coefficients to Real World
 
-The goal is to find a_real, b_real, c_real in terms of corresponding values in pixel space and scaling factors, mx, my.
+The goal is to find a_mtr, b_mtr, c_mtr in terms of corresponding values in pixel space and scaling factors, mx, my.
 
 Given:
 ```
@@ -498,12 +498,19 @@ b_mtr = b_pix*mx/my
 c_mtr = c_pix*mx
 ```
 
-So scaling the pixel coefficients to real world coefficients can now be implemented, whilst skipping another call to polyfit using points scaled to real world:
+So scaling the pixel coefficients to real world coefficients can now be implemented, whilst skipping another call to polyfit using points scaled to real world (note we use the scaling factors, XM_PER_PIXEL and YM_PER_PIXEL) presented in the lesson:
 
 ```
 ###
 ### Code location: alf_llg.py
 ###
+
+# image to real space scaling default per lesson Measuring Curvature II
+# in meters per pixel; used in calculating radius of curvature
+# as well as offset center
+XM_PER_PIXEL = 3.7 / 700    
+YM_PER_PIXEL = 30 / 720
+
 
 class Line:
 
@@ -529,7 +536,7 @@ class Line:
 
 ### Center Offset
 
-The x-coordinate of each line at the base of the image, `Line.baseX()`, is used to calculate the center x coordinate between the two lanes, `lane_ceter`. It is then subtracted by the center coordinate of the screen, `img_ctr`, to calculate the offset of the vehicle from center line.
+The x-coordinate of each line at the base of the image, `Line.baseX()`, is used to calculate the center x-coordinate between the two lanes, `lane_ceter`. It is then subtracted by the center coordinate of the screen, `img_ctr`, to calculate the offset of the vehicle from center line.
 
 ```
 ###
@@ -588,7 +595,7 @@ class AdvancedLaneFinder:
 
 ## Final image composition
 
-Because the lane area is in the top down perspective, the main controller reuses the warper component to unwarped the lane area, then uses HUD component to blend the lane area with the original *undistorted* image, and write the radius of curvature and center offset.
+Because the lane area is in the top down perspective, the main controller reuses the warper component to unwarped the lane area, then uses HUD (for Heads Up Display) component to blend the lane area with the original *undistorted* image, and write the radius of curvature and center offset.
 
 ```
 
@@ -608,7 +615,9 @@ class Controller:
         final_img           = self.hud.compose(img_undistorted, unwarped_lanes, rad, off)
         
         ...
+```
 
+```
 ###
 ### Code location: alf_war.py
 ###
@@ -624,8 +633,9 @@ class Warper:
                 flags=cv2.INTER_LINEAR)
         
         return img_unwarped
+```
 
-
+```
 ###
 ### Code location: alf_hud.py
 ###
@@ -735,32 +745,33 @@ class Controller:
 
 ### Project Video
 
-The pipeline appears to have succesfully identified the lane area and is located here in the `output_images` folder with filename `project_video.mp4`: [output_images/project_video.mp4](./output_images/project_video.mp4)
+The pipeline appears to have succesfully identified the lane area and is located in the `output_images` folder with filename `project_video.mp4`: [output_images/project_video.mp4](./output_images/project_video.mp4)
 
 ![](output_images/wup_project_video.png)
 
-### Pipeline Struggles, and Completes Challenge Video...
+### Pipeline Struggles, but Completes Challenge Video...
 The pipeline also appears to have succesfully worked on the challenge video. The output is located here: [output_images/challenge_video.mp4](output_project/challenge_video.mp4)
 
 ![](output_images/wup_challenge_video.png)
 
-### ...but Fails Miserably on Harder Challenge Video
+### ...and Fails Miserably on Harder Challenge Video
 The tight curves, brush and trees on either side of the road, dashboard glare, varied lighting conditions, and traffic were some of the challenges that prevented the pipeline from consistently detecting the lanes in this video:  [output_images/challenge_video.mp4](output_project/challenge_video.mp4)
 
 ![](output_images/wup_harder_challenge_video.png)
 
 ## Limitations, Issues, Challenges
 - Varied lighting conditions made it a challenge to find good HSV values that would help the pipeline detect lanes in all frames.
-- Dashboard glare detrimentally affects performance
-- Camera lens aperture detrimentally changes affects performance (aperture appears to change from shadow area to light area)
+- Dashboard glare detrimentally affects performance.
+- Camera lens aperture changes detrimentally affects performance (aperture appears to change from shadow area to light area).
 - There is no universal set of pipeline parameters. The pipeline parameters are tuned to a specific video. So the pipeline parameters for one video may not work on another.
-- Pipeline will fail on sudden, tight curves
-- Dried brush on side of road looks like yellow lane. 
-- Guradrail on side of road looks like white lane
+- Pipeline will fail on sudden, tight curves. 
+- It will struggle on extended light colored roads; dried brush on side of road will fool pipeline into thinking it is a lane; guardrail on side of road looks like white lane.
+- Bumpy roads (such as going over a brdige) will change the perspective of the road and may make the lanes either coverge or diverge.
 
-## Areas of Improve
+## Areas of Improvement
 - Investigate use of CNN/YOLO to identify lane and edges of lane (and traffic!).
 - Identify center of road instead of lane markers.
 - Dynamically adjust pipeline parameters. Perhaps take the histogram of the bottom half of frame and stretch the HSV values to achieve better color, light and shadow separation.
 - Use some kind of A* search for lane pixels where search area is biased in direction of where more pixels are located.
-- Sensor-related: Use of a polarizing filter on camera to help with glare. Use constant aperture (don't go full auto on camera); mount camera on front of car sensor improvements; use lens hood
+- Sensor-related: Use of a polarizing filter on camera to help with glare. Use constant aperture (don't go full auto on camera); mount camera on front of car sensor improvements; use lens hood; use some kind of 3-axis stabilization for sensor
+- Creating a virtual test track (ex: on Unreal Studio) with perfect conditions may be a cost effective approach in further researching lane detecting algorithms.
