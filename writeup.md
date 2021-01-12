@@ -2,6 +2,14 @@
 # Advanced Computer Lane Finding 
 Implement a video processing pipeline that detects road lanes.
 
+## Table of Contents
+- [Goals](#goals)
+- [Distortion Correction](#distortion-correction)
+ - [Chessboard Corners](#chessboard-corners)
+ - [Camera Calibration](#camera-calibration)
+- [Image Enhancement](#image-enhancement)
+ -  [Sobel X-Gradient Masking](#sobel-x-gradient-masking)
+
 
 ## Goals
 - Correct image distortion by computing the camera matrix and distortion coefficients.
@@ -13,7 +21,8 @@ Implement a video processing pipeline that detects road lanes.
 - Fulfill a requirement of the Udacity Self-Driving Car Engineer Nanodegree Program.
 - Practice using the following: opencv, classes, modules, UML sketching, GRASP, and docstring.
 
-## Distortion correction
+## Distortion Correction
+
 Ensuring that straight lines in the real world appear straight in image space prevents false curves from being processed by later stages of the pipeline.
 
 ### Chessboard Corners
