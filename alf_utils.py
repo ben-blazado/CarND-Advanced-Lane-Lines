@@ -255,7 +255,7 @@ def demoCompose(img):
     unwarped_lanes      = war.unwarpPerspective(lane_area)
     final_img           = hud.compose(img_undistorted, unwarped_lanes, rad, off)
     
-    plt.figure(figsize=(14,6))
+    plt.figure(figsize=(17,6))
     ax1 = plt.subplot(121)
     ax1.imshow(img_undistorted)
     ax1.set_title('Original Image')
