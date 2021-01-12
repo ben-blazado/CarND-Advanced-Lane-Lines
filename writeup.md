@@ -221,7 +221,7 @@ A "sliding window" search area and, when a line was successfully found in a prev
 
 ### Sliding Window Search Area
 
-The "sliding window" search area defined a rectangle, `(x1, y1, x2, y2)`, which starts at the base of the image and progressively "slides" up the image to gather lane pixels within the boundaries of the rectangle. The lane pixels are gathers in separate x and y position arrays `lane_points_x` and `lane_points_`. The horizontal (x) position of the rectangle is adjusted to the average x position of all pixels found if a threshold number of points was reached. Also, if not enough pixels were found the window is slid in the last direction of found pixels so that it just does not slide upwards. Rather, it slides in the direction the previous window slid. The sliding stops once it reaches the top (when y1 == 0). 
+The "sliding window" search area defined a rectangle, `(SlidingWindow.x1, SlidingWindow.y1, SlidingWindow.x2, SlidingWindow.y2)`, which starts at the base of the image and progressively "slides" up the image to gather lane pixels within the boundaries of the rectangle. The lane pixels are gathers in separate x and y position arrays `SlidingWindow.lane_points_x` and `SlidingWindow.lane_points_y`. The horizontal (`SlidingWindow.x_mid`) position of the rectangle is adjusted to the average x position of all pixels found if a threshold number of points was reached. Also, if not enough pixels were found the window is slid in the last direction of found pixels so that it just does not slide upwards. Rather, it slides in the direction the previous window slid. Windows can slide past the left or right edges. The sliding stops once it reaches the top (set in boolean variable `SlidingWindow.passed_top` in `SlidingWindow.slideUp()`).  
 
 ```
 ###
@@ -268,7 +268,7 @@ class SlidingWindow:
 
 ### Line Fitting
 
-The lane points in separate x and y arrays are then used to find a line that best represents the lane using numpy's `polyfit()`:
+The lane points in separate x and y arrays are then used to find a line (in terms of the second degree polynomial coefficients) that best represents the lane using numpy's `polyfit()`:
 
 ```
 ###
@@ -399,7 +399,7 @@ The coefficients of the line can then be used to represent the real world lane. 
 
 ### Linear Window Search Area
 
-If a line has been found in a previous frame, a linear window search area is used. The borders of the search area are simply  offsets to either side of the line, `(LinearWindow.x1, LinearWindow.x2)`. Pixels are simply gathered for those that are within these linear borders:
+If a line has been found in a previous frame, a linear window search area is used. The borders of the search area are simply  offsets to either side of the line, `(LinearWindow.x1, LinearWindow.x2)`. Pixels are simply gathered into `LinearWindow.lane_points_x` and `LinearWindow.lane_points_y` for those that are within these linear borders:
 
 ```
 ### 
@@ -432,41 +432,41 @@ class LinearWindow:
 
 ### Linear Window Search Area Detections
 
-Below is an example of the linear windows search areas, the borders on each side, lane pixels detected within those borders, and the lines representing the lanes:
+Below is an example of the linear windows search areas, the borders on each side (green), lane pixels detected within those borders (yellow and blue), and the lines representing the lanes (red):
 
 ![](output_images/wup_linear_window.png)
 
 ### Lane Area
 
-With both lane lines detected, a polygon is formed which is filled to highlight the lane area:
+With both lane lines detected, an enclosed "polygon" is formed which is filled to highlight the lane area. This top down view of the lane area will then be restored to a its proper perspective and blended into the original image of the road.
 
 ![](output_images/wup_lane_area.png)
 
 ## Radius of Curvature and Center Offset
 
-To calculate the radius of curvature, the suggestion in *Lesson 8 - Measuring Curvature II* is used which allows us to skip doing another line fit since we are scaling the image space to real world space. The challenge is to derive the real world line coefficients from the existing coefficients in the pixel space (scale to meters from pixels).
+To calculate the radius of curvature, the suggestion in *Lesson 8 - Measuring Curvature II*. The advantage of using the method suggested is allows the pipeline to skip doing another line fit of xy coordinates scaled to real world coordinates in order to solve for the real world values of the coefficients. Real world line coefficients can be derived from the existing coefficients in the pixel space (scale to meters from pixels) without the need for doing another line fit.
 
 ### Scaling Line Coefficients to Real World
 
-The goal is to find a_mtr, b_mtr, c_mtr in terms of corresponding values in pixel space and scaling factors, mx, my.
+The goal is to find `a_mtr`, `b_mtr`, `c_mtr` (real world coefficients) in terms of corresponding values in pixel space (`a_pix`, `b_pix`, `c_pix`) and scaling factors (`mx`, `my`).
 
-Given:
-```
-y_mtr = my * y_pix  so: y_pix = y_mtr/my
-x_mtr = mx * x_pix  so: x_pix = x_mtr/mx
-```
-
-The line in the by the second degree polynomial in real world:
+The line in the real world scale is:
 ```
 x_mtr = a_mtr*(y_mtr)**2 + b_mtr*y_mtr + c_mtr
 ```
 
-Similarly, in pixel space:
+Scaling real world coordinates from pixels coordinates is given by
+```
+y_mtr = my * y_pix  =>  y_pix = y_mtr/my
+x_mtr = mx * x_pix  =>  x_pix = x_mtr/mx
+```
+
+The line in pixel space is:
 ```
 x_pix = a_pix*(y_pix)**2 + b_pix*y_pix + c_pix
 ```
 
-Substitute x_pix and y_pix:
+Substitute `x_pix` and `y_pix` with their real world values `x_mtr` and `y_mtr`:
 ```
 x_mtr/mx = a_pix*(y_mtr/my)**2 + b_pix*(y_mtr/my) + c_pix
 ```
@@ -476,7 +476,7 @@ Arrange the y-scale factor, `my`:
 x_mtr/mx = (a_pix/my**2)*(y_mtr)**2 + (b_pix/my)*(y_mtr) + c_pix
 ```
 
-Multiply both sides by mx to solve for x_mtr:
+Multiply both sides by `mx` to solve for `x_mtr`:
 ```
 x_mtr = mx*((a_pix/my**2)*(y_mtr)**2 + mx*(b_pix/my)*(y_mtr) + mx*c_pix
 ```
@@ -486,19 +486,19 @@ Arrange the x-scale factor, `mx`:
 x_mtr = (a_pix*mx/my**2)*(y_mtr)**2 + (b_pix*mx/my)*(y_mtr) + mx*c_pix
 ```
 
-But since: 
+Recall that the line in real world scale is...: 
 ```
 x_mtr = a_mtr*(y_mtr)**2 + b_mtr*y_mtr + c_mtr
 ```
 
-The coefficients in real_world (a_mtr, b_mtr, c_mtr) can be scaled in terms of their corresponding pixel coefficients using the following:
+...then the coefficients in real_world (a_mtr, b_mtr, c_mtr) can be scaled in terms of their corresponding pixel coefficients using the following:
 ```
 a_mtr = a_pix*mx/(my**2)
 b_mtr = b_pix*mx/my
 c_mtr = c_pix*mx
 ```
 
-So scaling the pixel coefficients to real world coefficients can now be implemented, whilst skipping another call to polyfit using points scaled to real world (note we use the scaling factors, XM_PER_PIXEL and YM_PER_PIXEL) presented in the lesson:
+So scaling the pixel coefficients to real world coefficients can now be implemented, whilst skipping another call to `polyfit()` (note we use the scaling factors, `XM_PER_PIXEL = 3.7/700` and `YM_PER_PIXEL = 30/720`, presented in the lesson.
 
 ```
 ###
@@ -536,7 +536,7 @@ class Line:
 
 ### Center Offset
 
-The x-coordinate of each line at the base of the image, `Line.baseX()`, is used to calculate the center x-coordinate between the two lanes, `lane_ceter`. It is then subtracted by the center coordinate of the screen, `img_ctr`, to calculate the offset of the vehicle from center line.
+The x-coordinate of each line at the base of the image, `Line.baseX()`, is used to calculate the center x-coordinate between the two lanes, `lane_center`. It is then subtracted by the center coordinate of the screen, `img_ctr`, to calculate the offset of the vehicle from center line (scaled from pixel to real world space using `XM_PER_PIXEl`).
 
 ```
 ###
@@ -598,7 +598,6 @@ class AdvancedLaneFinder:
 Because the lane area is in the top down perspective, the main controller reuses the warper component to unwarped the lane area. 
 
 ```
-
 ###
 ### Code location: alf_con.py 
 ###
@@ -635,7 +634,7 @@ class Warper:
         return img_unwarped
 ```
 
-The controller then uses HUD (for Heads Up Display) component to blend the lane area with the original *undistorted* image, and write the radius of curvature and center offset.
+The controller then uses HUD (for Heads Up Display) component to blend the "unwarped" lane area with the original *undistorted* image, and write the radius of curvature and center offset onto the image.
 
 ```
 ###
@@ -709,7 +708,10 @@ The lane area, radius of curvature, center offset, and the original image are co
 
 ![](output_images/wup_compose.png)
 
-## The Pipeline Overview
+## The Pipeline
+
+The project video output is here: [project_video.mp4](./output_images/project_video.mp4)
+
 The pipeline processes each frame of the road video as an individual image by performing the following functions mentioned in the previous sections:
 - Distortion correction that reduces apparent curvature of straight lines
 - Image enhancement that detects edges detection and transforms color values
@@ -718,7 +720,87 @@ The pipeline processes each frame of the road video as an individual image by pe
 - Another image transformation that restores the top-down view of the lane area to the original perspective
 - Composing the original undistorted image with lane area, radius of curvature, and center offset
 
-It uses a `controller` to coordinate and sequence the various components of the pipeline:
+### Setting Parameters
+
+The parameters for the `Enhancer` and `AdvancedLaneFinder` must be set with `Controller.setParams()` before using the `Controller` to process each image. The parameters is specificed in a dict with values described in the comments of the code section below.
+
+```
+#
+# Code location: alf_con.py
+#
+
+Class Controller:
+
+    ...
+
+    def setParams(self, params):
+        '''
+        Sets tunable parameters for pipeline.
+        
+        Params:
+        - params: a dict that the following keys used to set parameters
+        for enhancer and advanced lane finder:
+            'sob_min_x'   : minimum sobel x gradient threshold
+            'y_min_s'     : min saturation (hsv) for yellow lane
+            'y_min_v'     : min value (hsv) for yellow lane
+            'w_max_s'     : MAX saturation (hsv) for white lane
+            'w_min_v'     : min value (hsv) for white lane
+            'max_coeffs'  : num prev coeffs (lines) to keep for smoothing
+            'min_samples' : num of lines needed to start smoothing
+            'N'           : num of std devs from mean to consider a good fit
+            'coeff_bias'  : amount of bias (0 to 0.99) for current  line
+            'clip_start'  : time to start processing clip
+            'clip_end'    : tome to end processing clip
+            'stage'       : stage of pipeline to output  (1..5)
+            'output'      : filename of output file
+            
+        Notes:
+        - Default params for project_video.mp4:
+        
+            project_video = {
+                'filename'   : 'project_video.mp4',
+                'sob_min_x'  : 40,
+                'y_min_s'    : 57,
+                'y_min_v'    : 220,
+                'w_max_s'    : 25,
+                'w_min_v'    : 201,
+                'max_coeffs' : 50,
+                'min_samples': 3,
+                'N'          : 12,
+                'coeff_bias' : 0.9,
+                'clip_start' : None,
+                'clip_end'   : None,
+                'stage'      : 5,
+                'output'     : 'project_video.mp4'
+            }
+        '''
+    
+        self.filename = params['filename']
+        
+        self.enh.setParams(
+                sob_min_x = params['sob_min_x'], 
+                y_min_s   = params['y_min_s'], 
+                y_min_v   = params['y_min_v'], 
+                w_max_s   = params['w_max_s'], 
+                w_min_v   = params['w_min_v'])
+            
+        self.alf.setParams(
+                max_coeffs  = params['max_coeffs'], 
+                min_samples = params['min_samples'], 
+                N           = params['N'], 
+                coeff_bias  = params['coeff_bias'])
+                
+        self.start  = params['clip_start']
+        self.end    = params['clip_end']
+        self.stage  = params['stage']
+        self.output = params['output']
+                
+        return
+```
+
+### Pipeline Control and Sequencing
+
+A `controller` coordinates and sequences the various components of the pipeline in the main processing methond `Controller.processImsg():
 
 ```
 ###
@@ -751,13 +833,13 @@ The pipeline appears to have succesfully identified the lane area and is located
 
 ![](output_images/wup_project_video.png)
 
-### Pipeline Struggles, but Completes Challenge Video...
+### Pipeline Struggles with, but Completes, Challenge Video...
 The pipeline also appears to have succesfully worked on the challenge video. The output is located here: [output_images/challenge_video.mp4](output_project/challenge_video.mp4)
 
 ![](output_images/wup_challenge_video.png)
 
 ### ...and Fails Miserably on Harder Challenge Video
-The tight curves, brush and trees on either side of the road, dashboard glare, varied lighting conditions, and traffic were some of the challenges that prevented the pipeline from consistently detecting the lanes in this video:  [output_images/challenge_video.mp4](output_project/challenge_video.mp4)
+The tight curves, brush and trees on either side of the road, dashboard glare, varied lighting conditions, and traffic were some of the challenges that prevented the pipeline from consistently detecting the lanes in the hard challenge video:  [output_images/challenge_video.mp4](output_project/challenge_video.mp4)
 
 ![](output_images/wup_harder_challenge_video.png)
 
