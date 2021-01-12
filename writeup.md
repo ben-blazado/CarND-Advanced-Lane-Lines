@@ -21,31 +21,31 @@ Ensuring that straight lines in the real world appear straight in image space pr
 The opencv function `findChessboardCorners()` was used to calculate object points and image points representing the inner corners of multiple chessboard images:
 
 
-```
+```python
 ###
 ### Code location: alf_cam.py
 ###
 
 class ChessboardImage:
 
-    ...
+    # ...
     
     def findChessboardCorners(self):
 
-        ...
+        # ...
         
         gray = cv2.cvtColor(self.img, cv2.COLOR_RGB2GRAY)
         corners_found, corners = cv2.findChessboardCorners(gray, (self.xdim, self.ydim), flags=None)
         
         if corners_found:
         
-            ...
+            # ...
             
             self.objpoints = np.zeros(shape=(self.xdim * self.ydim, 3), dtype=np.float32)
             self.objpoints[:, :2] = np.array([(x, y) for y in range(self.ydim) for x in range(self.xdim)])
 	        self.imgpoints = corners
             
-            ...
+            # ...
             
         return corners_found
 ```
@@ -57,18 +57,18 @@ Image below verifies the chessboard corners found:
 
 The objpoints and imgpoints data were used to compute the camera matrix and distortion coefficients. Calibration is performed using the opencv function `calibrateCamera()`, then `undistort()` is called in the main pipeline which performs the actual distortion correction:
 
-```
+```python
 ###
 ### Code location: alf_cam.py
 ###
 
 class Camera:
 
-    ...
+    # ...
     
     def calibrate(self, calibration_set=None):
 
-        ...
+        # ...
     
         if calibration_set is None:
             calibration_set = ChessboardCameraCalibrationSet()
@@ -78,11 +78,11 @@ class Camera:
         #--- rotation and translation vectors not used for this project
         cal_found, self.mtx, self.dist, _, _ = cv2.calibrateCamera(objpoints, imgpoints, self.image_shape, None, None)
         
-        ...
+        # ...
         
         return
         
-        ...	
+        # ...	
         
     def undistort(self, img):
         img_undist = cv2.undistort(img, self.mtx, self.dist)
@@ -100,14 +100,14 @@ Edge detection and color transformation is applied to the image corrected for di
 
 The Sobel function helped with detecting lanes in low contrast areas where the lightness of the road was similar to the lightness of the lanes.  
 
-```
+```python
 ###
 ### Code location: alf_enh.py
 ###
 
 class Enhancer:
 
-    ...
+    # ...
     
     def sobelXMask(self, img):
         gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
@@ -126,14 +126,14 @@ class Enhancer:
 
 The color transforms were done in the HSV colorspace because the image editing tools used to idenfity the color values worked in the HSV space. Yellow and white lane masks are combined with a bitwise OR:
 
-```
+```python
 ###
 ### Code location: alf_enh.py
 ###
 
 class Enhancer:
 
-    ...
+    # ...
 
     def laneMask(self, img):
         hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
@@ -162,13 +162,15 @@ class Enhancer:
 
 The sobel x-gradient mask is combined with the lane mask with bitwise AND: 
 
-```
+```python
 ### 
 ### Code location: alf_enh.py:
 ###
 
 class Enhancer:
-    ...
+    
+    # ...
+    
     def enhance(self, img):
         sobel_mask = self.sobelXMask (img)
         lane_mask = self.laneMask(img)       
@@ -186,13 +188,15 @@ The perspective of the road area is transformed to a top-down view prior to lane
 
 The trapezoidal region of the source image and the rectangular region of the destination is used to compute the perspective transformation matrix, `M`, to achieve a top down view using opencv's `warpPerspective()`. Its inverse, `invM`, is used to transform the top down view back into the original perspective on the road image using `unwarpPerspective()` in the final stage of the pipeline:
 
-```
+```python
 ###
 ### Code location: alf_enh.py
 ### 
 
 class Warper:
-    ...
+    
+    # ...
+    
     def calibrate(self):
         # M: transformation matrix
         self.M = cv2.getPerspectiveTransform(self.calibration_set.src_points, 
@@ -223,14 +227,14 @@ A "sliding window" search area and, when a line was successfully found in a prev
 
 The "sliding window" search area defined a rectangle, `(SlidingWindow.x1, SlidingWindow.y1, SlidingWindow.x2, SlidingWindow.y2)`, which starts at the base of the image and progressively "slides" up the image to gather lane pixels within the boundaries of the rectangle. The lane pixels are gathers in separate x and y position arrays `SlidingWindow.lane_points_x` and `SlidingWindow.lane_points_y`. The horizontal (`SlidingWindow.x_mid`) position of the rectangle is adjusted to the average x position of all pixels found if a threshold number of points was reached. Also, if not enough pixels were found the window is slid in the last direction of found pixels so that it just does not slide upwards. Rather, it slides in the direction the previous window slid. Windows can slide past the left or right edges. The sliding stops once it reaches the top (set in boolean variable `SlidingWindow.passed_top` in `SlidingWindow.slideUp()`).  
 
-```
+```python
 ###
 ### Code location: alf_llg.py
 ###
 
 class SlidingWindow:
 
-    ...
+    # ...
     
     def findPoints(self):
    
@@ -270,14 +274,14 @@ class SlidingWindow:
 
 The lane points in separate x and y arrays are then used to find a line (in terms of the second degree polynomial coefficients) that best represents the lane using numpy's `polyfit()`:
 
-```
+```python
 ###
 ### Code location: alf_llg.py
 ###
 
 class Line:
 
-    ...
+    # ...
     
     def fit(self, x_points, y_points):
         self.pts = None    
@@ -316,14 +320,14 @@ class Line:
 
 Once a fit has been determined, the line goes through a smoothing process which adjusts the coefficients to a weighted average of previous coefficients. If the fit is not within a specified `N` standard deviations of the average of previous coeffs, the most recent set of coefficients is used for the current line:
 
-```
+```python
 ###
 ### Code location: alf_llg.py
 ###
 
 class Line:
 
-    ...
+    # ...
     
     def smooth (self):
         
@@ -401,7 +405,7 @@ The coefficients of the line can then be used to represent the real world lane. 
 
 If a line has been found in a previous frame, a linear window search area is used. The borders of the search area are simply  offsets to either side of the line, `(LinearWindow.x1, LinearWindow.x2)`. Pixels are simply gathered into `LinearWindow.lane_points_x` and `LinearWindow.lane_points_y` for those that are within these linear borders:
 
-```
+```python
 ### 
 ### Code location: alf_llg
 ###
@@ -500,7 +504,7 @@ c_mtr = c_pix*mx
 
 So scaling the pixel coefficients to real world coefficients can now be implemented, whilst skipping another call to `polyfit()` (note we use the scaling factors, `XM_PER_PIXEL = 3.7/700` and `YM_PER_PIXEL = 30/720`, presented in the lesson.
 
-```
+```python
 ###
 ### Code location: alf_llg.py
 ###
@@ -514,7 +518,7 @@ YM_PER_PIXEL = 30 / 720
 
 class Line:
 
-    ...
+    # ...
 
     def radius(self, y, xm_per_pix=None, ym_per_pix=None):
         if not self.found:
@@ -538,13 +542,13 @@ class Line:
 
 The x-coordinate of each line at the base of the image, `Line.baseX()`, is used to calculate the center x-coordinate between the two lanes, `lane_center`. It is then subtracted by the center coordinate of the screen, `img_ctr`, to calculate the offset of the vehicle from center line (scaled from pixel to real world space using `XM_PER_PIXEl`).
 
-```
+```python
 ###
 ### Code location: alf_llg.py
 ###
 class Line
 
-    ...
+    # ...
 
     def baseX(self):
         '''
@@ -595,35 +599,35 @@ class AdvancedLaneFinder:
 
 ## Final image composition
 
-Because the lane area is in the top down perspective, the main controller reuses the warper component to unwarped the lane area. 
+Because the lane area is in the top down perspective, the `Controller` reuses the `Warper` component to unwarp the lane area. 
 
-```
+```python
 ###
 ### Code location: alf_con.py 
 ###
 
 class Controller:
 
-    ...
+    # ...
     
     def processImg(self, img):
     
-        ...
+        # ...
         
         unwarped_lanes      = self.war.unwarpPerspective(lane_area)
         final_img           = self.hud.compose(img_undistorted, unwarped_lanes, rad, off)
         
-        ...
+        # ...
 ```
 
-```
+```python
 ###
 ### Code location: alf_war.py
 ###
 
 class Warper:
 
-    ...
+    # ...
 
     def unwarpPerspective(self, img):
         
@@ -634,16 +638,16 @@ class Warper:
         return img_unwarped
 ```
 
-The controller then uses HUD (for Heads Up Display) component to blend the "unwarped" lane area with the original *undistorted* image, and write the radius of curvature and center offset onto the image.
+The `Controller` then uses `HUD` (for Heads Up Display) component to blend the "unwarped" lane area with the original *undistorted* image, and write the radius of curvature and center offset onto the image.
 
-```
+```python
 ###
 ### Code location: alf_hud.py
 ###
 
 class HUD:
 
-    ...
+    # ...
     
     def blendImages(self, img_undistorted, unwarped_lanes):
         
@@ -722,16 +726,16 @@ The pipeline processes each frame of the road video as an individual image by pe
 
 ### Setting Parameters
 
-The parameters for the `Enhancer` and `AdvancedLaneFinder` must be set with `Controller.setParams()` before using the `Controller` to process each image. The parameters is specificed in a dict with values described in the comments of the code section below.
+The parameters for the `Enhancer` and `AdvancedLaneFinder` must be set with `Controller.setParams()` before using the `Controller` to process each image. The parameters are specificed in a dict with values described in the comments of the code block below.
 
-```
+```python
 #
 # Code location: alf_con.py
 #
 
 Class Controller:
 
-    ...
+    # ...
 
     def setParams(self, params):
         '''
@@ -802,18 +806,18 @@ Class Controller:
 
 A `controller` coordinates and sequences the various components of the pipeline in the main processing methond `Controller.processImsg():
 
-```
+```python
 ###
 ### Code location: alf_con.py 
 ###
 
 class Controller:
 
-    ...
+    # ...
     
     def processImg(self, img):
     
-        ...
+        # ...
         
         srch_only           = (self.stage == 3)
         img_undistorted     = self.cam.undistort(img)
@@ -823,7 +827,7 @@ class Controller:
         unwarped_lanes      = self.war.unwarpPerspective(lane_area)
         final_img           = self.hud.compose(img_undistorted, unwarped_lanes, rad, off)
         
-        ...
+        # ...
         
 ```
 
