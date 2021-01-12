@@ -5,10 +5,10 @@ Implement a video processing pipeline that detects road lanes.
 ## Table of Contents
 - [Goals](#goals)
 - [Distortion Correction](#distortion-correction)
- - [Chessboard Corners](#chessboard-corners)
- - [Camera Calibration](#camera-calibration)
+  - [Chessboard Corners](#chessboard-corners)
+  - [Camera Calibration](#camera-calibration)
 - [Image Enhancement](#image-enhancement)
- -  [Sobel X-Gradient Masking](#sobel-x-gradient-masking)
+  - [Sobel X-Gradient Masking](#sobel-x-gradient-masking)
 
 
 ## Goals
