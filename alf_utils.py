@@ -80,7 +80,7 @@ def createUndistStraight():
     cam.calibrate()
     img_undist = cam.undistort(img)
     
-    plt.figure(figsize=(14,6))
+    plt.figure(figsize=(17,6))
     ax1 = plt.subplot(121)
     ax1.imshow(img)
     ax1.set_title('Original Image with Barrel Distortion')
@@ -123,7 +123,7 @@ def demoCameraCalibration():
     cam.calibrate()
     img_undist = cam.undistort(img)
     
-    plt.figure(figsize=(14,6))
+    plt.figure(figsize=(17,6))
     ax1 = plt.subplot(121)
     ax1.imshow(img)
     ax1.set_title('Original Image with Barrel Distortion')
@@ -145,7 +145,7 @@ def demoEnhance(img):
     mask = enh.enhance(img)
     
     
-    plt.figure(figsize=(14,6))
+    plt.figure(figsize=(17,6))
     
     ax1 = plt.subplot(121)
     ax1.imshow(img, cmap='gray')
@@ -176,7 +176,7 @@ def demoWarpImage(img):
     img_warped = war.warpPerspective(img_undist)
     img_warped = war.drawDst(img_warped)
     
-    plt.figure(figsize=(14,6))
+    plt.figure(figsize=(17,6))
     
     ax1 = plt.subplot(121)
     ax1.imshow(img_orig)
