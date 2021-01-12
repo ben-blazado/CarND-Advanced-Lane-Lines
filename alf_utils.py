@@ -141,7 +141,7 @@ def demoEnhance(img):
 
     
     enh = alf_enh.Enhancer()
-    enh.setParams(40, 57, 220, 201)
+    enh.setParams(5, 76, 96, 30, 202)
     mask = enh.enhance(img)
     
     
@@ -198,7 +198,7 @@ def demoLaneSearch(img):
     cam.calibrate()
     
     enh = alf_enh.Enhancer()
-    enh.setParams(40, 57, 220, 201)
+    enh.setParams(5, 76, 96, 30, 202)
     
     war = alf_war.ImageWarper()
     war.calibrate()
@@ -238,7 +238,7 @@ def demoCompose(img):
     cam.calibrate()
     
     enh = alf_enh.Enhancer()
-    enh.setParams(40, 57, 220, 201)
+    enh.setParams(5, 76, 96, 30, 202)
     
     war = alf_war.ImageWarper()
     war.calibrate()

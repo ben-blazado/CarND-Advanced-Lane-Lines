@@ -1,5 +1,5 @@
-# Advanced Computer Lane Finding 
 7-JAN-2021
+# Advanced Computer Lane Finding 
 Implement a video processing pipeline that detects road lanes
 
 
@@ -13,158 +13,754 @@ Implement a video processing pipeline that detects road lanes
 - Fulfill a requirement of the Udacity Self-Driving Car Engineer Nanodegree Program
 - Practice using the following: opencv, classes, modules, UML sketching, GRASP, and docstring
 
-## Pipeline Overview
-For this project, the pipeline processes each frame of the road video as an individual image by performing the following functions:
-- Distortion correction that reduces apparent curvature of straight lines
-- Image enhancement that detects edges detection and transforms color values
-- Image transformation that results in a top down view of road
-- Lane area identification that identifies pixels belonging road lanes
-- Image transformation that restores original perspective of lane area
-- Recomposing original undistorted image with lane area
-
-The main pipeline is Controller.processImg() in **alf_con.py***
-```python
-class Controller:
-...
-    def processImg(self, img):
-...
-		srch_only           = (self.stage == 3)
-	    img_undistorted     = self.cam.undistort(img)
-	    binary              = self.enh.enhance(img_undistorted)    
-	    binary_warped       = self.war.warpPerspective(binary)
-	    lane_area, rad, off = self.alf.paintLaneArea(binary_warped, srch_only)
-	    unwarped_lanes      = self.war.unwarpPerspective(lane_area)
-	    final_img           = self.hud.compose(img_undistorted, unwarped_lanes, rad, off)
-...
-```
-
 ## Distortion correction
-Ensuring that straight lines in the real world appear straight in image space prevents false curves from being processed by later stages of the pipeline.  The opencv function `findChessboardCorners()` was used to calculate object points and image points representing the inner corners of multiple chessboard images. These data were used to  compute the camera matrix and distortion coefficients. Calibration is performed using the opencv function `calibrateCamera()`, then `undistort()` is applied to the image to correct for distortion.
+Ensuring that straight lines in the real world appear straight in image space prevents false curves from being processed by later stages of the pipeline.
 
-Finding chessboard corners to create objpoints and imgpoints is in `alf_cam.py`:
-```python
+### Chessboard Corners
+
+The opencv function `findChessboardCorners()` was used to calculate object points and image points representing the inner corners of multiple chessboard images:
+
+
+```
+###
+### Code location: alf_cam.py
+###
+
 class ChessboardImage:
-...
+
+    ...
+    
     def findChessboardCorners(self):
-...
+
+        ...
+        
         gray = cv2.cvtColor(self.img, cv2.COLOR_RGB2GRAY)
         corners_found, corners = cv2.findChessboardCorners(gray, (self.xdim, self.ydim), flags=None)
         
         if corners_found:
-...
+        
+            ...
+            
             self.objpoints = np.zeros(shape=(self.xdim * self.ydim, 3), dtype=np.float32)
             self.objpoints[:, :2] = np.array([(x, y) for y in range(self.ydim) for x in range(self.xdim)])
 	        self.imgpoints = corners
-...
+            
+            ...
+            
         return corners_found
 ```
 
+Image below verifies the chessboard corners found:
 ![Chessboard corners found](output_images/wup_corners_calibration13.png)
 
+### Camera Calibration
 
-Camera calibration is in `alf_cam.py`:
-```python
+The objpoints and imgpoints data were used to compute the camera matrix and distortion coefficients. Calibration is performed using the opencv function `calibrateCamera()`, then `undistort()` is called in the main pipeline which performs the actual distortion correction:
+
+```
+###
+### Code location: alf_cam.py
+###
+
 class Camera:
-...
+
+    ...
+    
     def calibrate(self, calibration_set=None):
-...
+
+        ...
+    
         if calibration_set is None:
             calibration_set = ChessboardCameraCalibrationSet()
             
         objpoints, imgpoints, self.image_shape = calibration_set.getCalibrationParams ()
         
         #--- rotation and translation vectors not used for this project
-        cal_found, self.mtx, self.dist, _, _ = cv2.calibrateCamera(objpoints, 
-                imgpoints, self.image_shape, None, None)
-...
+        cal_found, self.mtx, self.dist, _, _ = cv2.calibrateCamera(objpoints, imgpoints, self.image_shape, None, None)
+        
+        ...
+        
+        return
+        
+        ...	
+        
+    def undistort(self, img):
+        img_undist = cv2.undistort(img, self.mtx, self.dist)
+        return img_undist	
+```
+
+Image below verifies camera calibration. The apparent curve of straight lines due to lens distortion is corrected to appear straight in the output image.
+
+![](output_images/wup_camera_calibrate.png)
+
+## Image Enhancement
+Edge detection and color transformation is applied to the image corrected for distortion. Sobel X-gradient and masks pickout yellow and white lanes. 
+
+### Sobel X-Gradient Masking
+
+The Sobel function helped with detecting lanes in low contrast areas where the lightness of the road was similar to the lightness of the lanes.  
+
+```
+###
+### Code location: alf_enh.py
+###
+
+class Enhancer:
+
+    ...
+    
+    def sobelXMask(self, img):
+        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        sobel = np.absolute(cv2.Sobel(gray, cv2.CV_64F, dx=1, dy=0))
+        sobel_scaled = np.uint8(255 * sobel / np.max(sobel))
+       
+        mask = np.zeros_like(sobel_scaled)
+       
+        # activate (set to "1") all pixels that meet the x gradient thresholds
+        mask[(self.sob_min_x <= sobel_scaled) & (sobel_scaled <= 255)] = 1
+       
+        return mask
+```
+
+### HSV Color Masking
+
+The color transforms were done in the hsv colorspace because the image editing tools used to idenfity the color values worked in the hsv space. Yellow and white lane masks are combined with a bitwise OR:
+
+```
+###
+### Code location: alf_enh.py
+###
+
+class Enhancer:
+
+    ...
+
+    def laneMask(self, img):
+        hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+
+        h = hsv[:,:,0] # h-channel
+        s = hsv[:,:,1] # s-channel
+        v = hsv[:,:,2] # v-channel
+
+        # mask for yellow lane
+        y_mask = np.zeros_like(s)
+        y_h = (10 <= h) & (h <= 25)
+        y_s = s > self.y_min_s
+        y_v = v > self.y_min_v
+        y_mask [(y_h & y_s & y_v)] = 1
+
+        # mask for white lane
+        w_mask = np.zeros_like(s)
+        w_s = s < self.w_max_s
+        w_v = self.w_min_v < v
+        w_mask[(w_s & w_v)] = 1
+
+        return y_mask | w_mask
+```
+
+### Combining Masks
+
+The sobel x-gradient mask is combined with the lane mask with bitwise AND: 
+
+```
+### 
+### Code location: alf_enh.py:
+###
+
+class Enhancer:
+    ...
+    def enhance(self, img):
+        sobel_mask = self.sobelXMask (img)
+        lane_mask = self.laneMask(img)       
+        return sobel_mask & lane_mask
+```
+
+If edge detection was not performed, the image would look like random noise in those low contrast, similarly colored areas. If the sobel mask was combined using a bitwise OR, we would get additional noise that would make it difficult for the later stages to pickout the lane. Keeping a low edge detection threshold helped pick out the lanes where the values and saturation of the white lanes were similar with light colored concrete:
+
+![](output_images/wup_enhancer.jpg)
+
+## Top-down View
+The perspective of the road area is transformed to a top-down view prior to lane pixel search and detection. To select the region, an undistorted image of a straight section of road is taken, and a line was drawn with an image editor to coincide with one of the straight lanes. The other line is derived from taking the inverse slope of the first and the four points of the trapezoid are then read from the image editor. In the actual pipeline, the trapezoidal region is transformed after the edge detection and color transformation masks are applied. A rectangular region is then plotted to which the trapezoid is transformed:
+
+![](output_images/wup_topdown.png)
+
+The trapezoidal region of the source image and the rectangular region of the destination is used to compute the perspective transformation matrix, `M`, to achieve a top down view using opencv's `warpPerspective()`. Its inverse, `invM`, is used to transform the top down view back into the original perspective on the road image using `unwarpPerspective()` in the final stage of the pipeline:
+
+```
+###
+### Code location: alf_enh.py
+### 
+
+class Warper:
+    ...
+    def calibrate(self):
+        # M: transformation matrix
+        self.M = cv2.getPerspectiveTransform(self.calibration_set.src_points, 
+                                            self.calibration_set.dst_points)
+        # use invM when unwarping image
+        self.invM = cv2.getPerspectiveTransform(self.calibration_set.dst_points, 
+                                                self.calibration_set.src_points)
+        return
+
+    def warpPerspective(self, img):
+        img_warped = cv2.warpPerspective(img, self.M, 
+              (img.shape[1], img.shape[0]), 
+              flags=cv2.INTER_LINEAR)
+        return img_warped
+    
+    def warpPerspective(self, img):
+        img_unwarped = cv2.warpPerspective(img, self.invM, 
+             (img.shape[1], img.shape[0]), 
+             flags=cv2.INTER_LINEAR)
+        return img_unwarped
+```
+
+## Lane Pixel Identification and Line Fitting
+
+A "sliding window" search area, and, when a line was successfully found in a previous frame, a "linear window" was used to gather pixels associated with a lane. It used the top down binary image from warp (perspective transformation) stage to identify lane pixels.
+
+### Sliding Window Search Area
+
+The "sliding window" search area defined a rectagle, `(x1, y1, x2, y2)`, which starts at the base of the image and progressively works up to gather lane pixels within the boundaries of the rectangle. The lane pixels are gathers in separate x and y position arrays `lane_points_x` and `lane_points_`. The horizontal (x) position of the rectangle is adjusted to the average x position of all pixels found if a threshold was reached. Also, if not enough pixels were found the window is slid in the last direction of found pixels so that it just does not search upwards. The sliding stops once it reaches the top. 
+
+```
+###
+### Code location: alf_llg.py
+###
+
+class SlidingWindow:
+
+    ...
+    
+    def findPoints(self):
+   
+        while not self.passed_top:        
+           
+            self.window_history.append([self.x1, self.y1, self.x2, self.y2])
+           
+            # mask in all points within window by x and y values
+            x_bool_mask = (self.x1 <= self.image_points_x) & (self.image_points_x <= self.x2)
+            y_bool_mask = (self.y1 <= self.image_points_y) & (self.image_points_y <= self.y2)
+
+            # bit wise the x and y masks to get the actual points
+            xy_bool_mask = (x_bool_mask) & (y_bool_mask)
+
+            # apply mask to image_points_x and _y to find the points that are in window region
+            points_found_x = self.image_points_x[xy_bool_mask]
+            points_found_y = self.image_points_y[xy_bool_mask]
+
+            # collect the points found into lane_points_x and _y
+            self.lane_points_x.extend(points_found_x)
+            self.lane_points_y.extend(points_found_y)
+
+            # update the midpoint if enough points found above threshold
+            if len(points_found_x) >= self.numpoints_found_thresh:
+                new_x_mid = np.int(np.average(points_found_x))
+                self.x_dir = new_x_mid - self.x_mid
+                self.x_mid = new_x_mid
+            elif (len(points_found_x) < self.numpoints_found_thresh // 3 and self.x_dir is not None):
+                self.x_mid += self.x_dir
+
+            self.slideUp()
+       
+        return (self.lane_points_x, self.lane_points_y)
+```
+
+### Line Fitting
+
+The lane points in separate x and y arrays are then used to find a line that best represents the lane using numpy's `polyfit()`:
+
+```
+###
+### Code location: alf_llg.py
+###
+
+class Line:
+
+    ...
+    
+    def fit(self, x_points, y_points):
+        self.pts = None    
+        self.x = None
+        self.y = None 
+        self.found = False 
+        tries = 0
+        max_tries = 3
+        while tries < max_tries and not self.found:
+            tries += 1
+            try:
+                # remember we solve for X!!! i.e. x = ay^2 + by + c
+                coeffs = np.polyfit(y_points, x_points, deg=2)
+                if tries > 1:
+                    msg = "Polyfit succeeded on try {}."
+                    self.logger.debug(msg.format(tries))
+                self.found = True
+            
+            except Exception as e:
+                if tries < max_tries:
+                    msg = "Polyfit failed: {}. Trying again."
+                    self.logger.debug(msg.format(e))
+                else:
+                    msg = "Polyfit failed to fit a line. {}."
+                    self.logger.debug(msg.format(e))
+                    
+        if self.found:
+            self.coeffs = coeffs
+        else:
+            self.coeffs = None
+            
         return
 ```
 
-![](output_images/camera_calibrate.png)
+### Smoothing
+
+Once a fit has been determined, the line goes through a smoothing process which adjusts the coeefficients to a weighted average of previous coefficients. If the fit is not within a specified `N` standard deviations of the average of previous coeffs, the most recent set of coefficients is used for the current line:
+
+```
+###
+### Code location: alf_llg.py
+###
+
+class Line:
+
+    ...
+    
+    def smooth (self):
+        
+        good_fit = False
+        
+        if self.prev_coeffs:
+            
+            avg_prev_coeffs = np.average(self.prev_coeffs, axis=0)
+            
+            if self.found:
+                
+                if len (self.prev_coeffs) > self.min_samples:
+                    # see if coeff of line is within std devs of avg 
+                    # of previous lines 
+                    std_prev_coeffs = np.std(self.prev_coeffs, axis=0)
+                    in_range = (abs(self.coeffs - avg_prev_coeffs) 
+                               < self.N*std_prev_coeffs)
+                else:
+                    in_range = [True]
+                    
+                good_fit = all (in_range)
+
+                if good_fit:
+                    self.logger.debug("Line fit seems ok.")
+                    # coeffs use avg prev coeffs based on bias
+                    # set coeff bias to 1 to prevent bias from prev coeffs
+                    self.coeffs = (self.coeff_bias*self.coeffs
+                                  + (1-self.coeff_bias)*avg_prev_coeffs)
+                    self.prev_coeffs.append(self.coeffs) 
+                    if len(self.prev_coeffs) > self.max_coeffs:
+                        # pop first to remove oldest line from list to 
+                        # prevent being include in average
+                        self.prev_coeffs.pop(0)
+                        msg = "Coeff buffer full:{}. Removed oldest line."
+                        self.logger.debug(msg.format(len(self.prev_coeffs)))
+                
+                else:
+                    self.logger.debug("Line fit looks off; "
+                        + "will use average of previous.")
+                    self.coeffs = avg_prev_coeffs
+                    # set found to False since line fit was bad
+                    # remove oldest line; allows list of previous fits
+                    # to decay to nothing if consecutive bad lines are
+                    # are found
+                    self.prev_coeffs.pop(0)
+                    
+            else:
+                # line not found, use average of previous coffecients 
+                self.logger.debug("Line was not found! "
+                    + "Using average of old lines.")
+                self.coeffs = avg_prev_coeffs                
+                self.prev_coeffs.pop(0)
+                # set found to True since we "found" a line 
+                # using the average of previous coeffs
+                
+        elif self.found:
+            # first coeff to add to list! 
+            good_fit = True
+            # don't smooth since there is nothing to smooth to
+            self.prev_coeffs.append(self.coeffs) 
+            
+        msg = "Number of old lines/coeffs: {}."
+        self.logger.debug(msg.format(len(self.prev_coeffs)))
+            
+        return good_fit
+```
+
+### Sliding Window Search Area Detections
+
+The coefficients of the line can then be used to represent the real world lane. Below is an example of the sliding windows, detected pixels, and lane lines:
+
+![](output_images/wup_sliding_window.png)
+
+### Linear Window Search Area
+
+If a line has been found in a previous frame, a linear window search area is used. The borders of the search area are simply  offsets to either side of the line, `(LinearWindow.x1, LinearWindow.x2)`. Pixels are simply gathered for those that are withion these borders:
+
+```
+### 
+### Code location: alf_llg
+###
+
+class LinearWindow:
+    
+    def findPoints (self):
+        
+        # mask in all points within linear window by x values
+        x_bool_mask = (self.x1 <= self.image_points_x) & (self.image_points_x <= self.x2)
+        
+        # apply mask to image_points_x and _y to find the points 
+        # that are in linear window search area 
+        points_found_x = self.image_points_x[x_bool_mask]
+        points_found_y = self.image_points_y[x_bool_mask]
+        
+        # collect the points found into lane_points_x and _y
+        self.lane_points_x.extend(points_found_x)
+        self.lane_points_y.extend(points_found_y)
+        
+        # the x coordinates of the line may be modified after line smoothing
+        # and may not reflect the original search area
+        # so save the x coordinates after find findpoints for use in paint
+        self.x_search_line = [self.line.lookupX(y) for y in range(self.ht)]
+        
+        return self.lane_points_x, self.lane_points_y    
+```
+
+### Linear Window Search Area Detections
+
+Below is an example of the linear windows search areas, the borders on each side, lane pixels detected within those borders, and the lines representing the lanes:
+
+![](output_images/wup_linear_window.png)
+
+### Lane Area
+
+With both lane lines detected, a polygon is formed which is filled to highlight the lane area:
+
+![](output_images/wup_lane_area.png)
+
+## Radius of Curvature and Center Offset
+
+To calculate the radius of curvature, the suggestion in Lesson 8 - Measuring Curvature II is used which allows us to skip doing another line fit since we are scaling the image space to real world space. The challenge is to derive the real world line coefficients from the existing coefficients in the pixel space (scale to meters from pixels).
+
+### Scaling Line Coefficients to Real World
+
+The goal is to find a_real, b_real, c_real in terms of corresponding values in pixel space and scaling factors, mx, my.
+
+Given:
+```
+y_mtr = my * y_pix  so: y_pix = y_mtr/my
+x_mtr = mx * x_pix  so: x_pix = x_mtr/mx
+```
+
+The line in the by the second degree polynomial in real world:
+```
+x_mtr = a_mtr*(y_mtr)**2 + b_mtr*y_mtr + c_mtr
+```
+
+Similarly, in pixel space:
+```
+x_pix = a_pix*(y_pix)**2 + b_pix*y_pix + c_pix
+```
+
+Substitute x_pix and y_pix:
+```
+x_mtr/mx = a_pix*(y_mtr/my)**2 + b_pix*(y_mtr/my) + c_pix
+```
+
+Arrange the y-scale factor, `my`:
+```
+x_mtr/mx = (a_pix/my**2)*(y_mtr)**2 + (b_pix/my)*(y_mtr) + c_pix
+```
+
+Multiply both sides by mx to solve for x_mtr:
+```
+x_mtr = mx*((a_pix/my**2)*(y_mtr)**2 + mx*(b_pix/my)*(y_mtr) + mx*c_pix
+```
+
+Arrange the x-scale factor, `mx`:
+```
+x_mtr = (a_pix*mx/my**2)*(y_mtr)**2 + (b_pix*mx/my)*(y_mtr) + mx*c_pix
+```
+
+But since: 
+```
+x_mtr = a_mtr*(y_mtr)**2 + b_mtr*y_mtr + c_mtr
+```
+
+The coefficients in real_world (a_mtr, b_mtr, c_mtr) can be scaled in terms of their corresponding pixel coefficients using the following:
+```
+a_mtr = a_pix*mx/(my**2)
+b_mtr = b_pix*mx/my
+c_mtr = c_pix*mx
+```
+
+So scaling the pixel coefficients to real world coefficients can now be implemented, whilst skipping another call to polyfit using points scaled to real world:
+
+```
+###
+### Code location: alf_llg.py
+###
+
+class Line:
+
+    ...
+
+    def radius(self, y, xm_per_pix=None, ym_per_pix=None):
+        if not self.found:
+            return None
+        try:
+            # rescale coeffs and y to real world
+            a = self.coeffs[0] * xm_per_pix / ym_per_pix**2
+            b = self.coeffs[1] * xm_per_pix / ym_per_pix
+            y = y * ym_per_pix    # scale y to real-world!
+            R = (1 + (2*a*y + b)**2)**(3/2) / abs(2*a)
+            msg = "Radius of curvature: {}."
+            self.logger.debug(msg.format(R))
+        except Exception as e:
+            msg = "Error in calculating radius of curvature: {}."
+            self.logger.warning(msg.format(e))
+            R = None
+        return R
+```
+
+### Center Offset
+
+The x-coordinate of each line at the base of the image, `Line.baseX()`, is used to calculate the center x coordinate between the two lanes, `lane_ceter`. It is then subtracted by the center coordinate of the screen, `img_ctr`, to calculate the offset of the vehicle from center line.
+
+```
+###
+### Code location: alf_llg.py
+###
+class Line
+
+    ...
+
+    def baseX(self):
+        '''
+        Returns the x coordinate of the "base" of the line; i.e. at the bottom of image.
+        
+        Notes:
+        - Used in calculating offset from center for the lane finder
+        - Call generateXY() before calling this
+        - returns none if no line was found
+        '''
+        
+        if not self.found:
+            return None
+            
+        return self.x[-1]
 
 
+class AdvancedLaneFinder:
 
+    def centerOffset(self):
+        
+        img_ctr = self.binary_warped.shape[1] // 2
+        
+        t = 0    # sums up x values
+        n = 0    # count of number of samples
 
-## Image Enhancement
-Used sobel function
-Color transform; hsv not hsl
-combined masks bitwise or
-increase sensitivity, lower mins increase max
+        # get distance from center
+        x_left =  self.left_lane_line_finder.baseX()
+        t  += x_left if x_left is not None else 0
+        n  += 1 if x_left is not None else 0
+        
+        x_right = self.right_lane_line_finder.baseX()
+        t  += x_right if x_right is not None else 0
+        n  += 1 if x_right is not None else 0
+        
+        if n > 0:
+            lane_center = t / n
+            self.center_offset = (lane_center - img_ctr) * XM_PER_PIXEL
+        else:
+            self.center_offset = None
+            
+        msg = "Center offset: {}."
+        self.logger.debug(msg.format(self.center_offset))
+            
+        return self.center_offset 
 
-code here
-image here
-
-## Lane pixel identification and line fitting
-Subsetion Sliding window search area
-Linear window search area
-subsection Line fitting using polyfit
- Smoothing
-
-code image
-
-
-## Radius of curvature and center offset
-Used formula
-Derive the formula
-Center offset using base of line
-
-code here
+```
 
 ## Final image composition
-original image
-unwarping lane area
-using openvs to combine image
 
-## Limitations
-- Tuned to specific video (lighting weather)
-- Glare/blooms
-- Sudden curves
-- Tight curves
-- Dried brush on side of road looks like yellow lane, 
-- rail looks like white lane
-- mounted internally glare from top dashboard
+Because the lane area is in the top down perspective, the main controller reuses the warper component to unwarped the lane area, then uses HUD component to blend the lane area with the original *undistorted* image, and write the radius of curvature and center offset.
 
-## Improvements
-- Dynamically adjust parameters using histrograms
-- Use some kind of A* search for lane pixels where search area is biased in direction of where more pixels are located
-- Frame by frame normalization of brightness values
-- Glare - use of a polarizing filter, sensor improvements, lens hood
-- Hood camera placement
-- Bind camera calibration set and image transformation coordinates to the projects
+```
 
+###
+### Code location: alf_con.py 
+###
 
+class Controller:
 
-## Other Notes
-### Images at each Pipeline Stage
+    ...
+    
+    def processImg(self, img):
+    
+        ...
+        
+        unwarped_lanes      = self.war.unwarpPerspective(lane_area)
+        final_img           = self.hud.compose(img_undistorted, unwarped_lanes, rad, off)
+        
+        ...
 
-Because the image processed by the function `test_highlight_yellow_and_white()` produced a mask that was already gray scale and not noisy, the pipeline skipped applying a gaussian blur and proceeded with edge detection, Hough transformation, and superimposing the lanes on the final image. Results of applying this shorter pipeline are below:
+###
+### Code location: alf_war.py
+###
 
-![laned_solidWhiteCurve.jpg](test_images_output/laned_solidWhiteCurve.jpg "laned_solidWhiteCurve.jpg ")
-![laned_solidWhiteRight.jpg](test_images_output/laned_solidWhiteRight.jpg "laned_solidWhiteRight.jpg")
-![laned_solidYellowCurve.jpg](test_images_output/laned_solidYellowCurve.jpg "laned_solidYellowCurve.jpg")
-![laned_solidYellowCurve2.jpg](test_images_output/laned_solidYellowCurve2.jpg "laned_solidYellowCurve2.jpg")
-![laned_solidYellowLeft.jpg](test_images_output/laned_solidYellowLeft.jpg "laned_solidYellowLeft.jpg")
-![laned_whiteCarLaneSwitch.jpg](test_images_output/laned_whiteCarLaneSwitch.jpg "laned_whiteCarLaneSwitch.jpg")
+class Warper:
 
-### Pipeline Limitations
+    ...
 
-- Lanes exhibit a lot of jitter,
-- Lanes that are near-horizontal are not drawn
-- Lanes that are near-vertical are not drawn
-- Probably will not detect lanes at night or during inclement weather
-- Faded lanes will probably not be detected 
-
-### Areas of improvement
-- Use theta (angle of incidence of line to horizontal) instead of slope
-- Further tweaking parameters
-- Including average of previous n-frames in calculating the lane line could help reduce lane jitter
-- Collect metrics such as:
-	- How many frames did not detect any lines
-	- time to process each frame to understand pipeline performance
-- Use CNN techniques to identify the lanes
-- Draw continuous curve for curved lanes
-
-> Written with [StackEdit](https://stackedit.io/).
+    def unwarpPerspective(self, img):
+        
+        img_unwarped = cv2.warpPerspective(img, self.invM, 
+                (img.shape[1], img.shape[0]), 
+                flags=cv2.INTER_LINEAR)
+        
+        return img_unwarped
 
 
-> Written with [StackEdit](https://stackedit.io/).
+###
+### Code location: alf_hud.py
+###
+
+class HUD:
+
+    ...
+    
+    def blendImages(self, img_undistorted, unwarped_lanes):
+        
+        self.img_lane_area = cv2.addWeighted(img_undistorted, 
+                                             alpha = 1.0, 
+                                             src2  = unwarped_lanes, 
+                                             beta  = 0.3, 
+                                             gamma = 0.0)
+        
+        return
+    
+    def putRadius(self, rad):
+    
+        radius = rad
+        if radius is None:
+            rad_str = "Radius:"
+        elif radius >= 2000: 
+            # we'll use around 2km for a road that feels straight
+            # min curve radius with superelevation 80mph 4575ft ~1.4km
+            # per U.S. government specifications for highway curvature: 
+            # link: https://tinyurl.com/y42ulukp
+            rad_str = "On straightaway"
+        else:
+            msg = "Radius: {:.2f} km"
+            rad_str = msg.format (radius / 1000)
+        
+        cv2.putText(self.img_lane_area, rad_str, (50, 50), self.font, self.scale, self.color, self.thickness)
+        
+        return
+        
+    def putCenterOffset(self, off):
+        
+        center_offset = off
+        if center_offset is None:
+            off_str = "Center offset "
+        else:
+            if abs (center_offset) < 0.1:  #--- 0.1 m or 10 cm
+                #--- if it's within 10cm it's on centerline...comeon!!!!
+                off_str = "Roughly on centerline!"
+            else:
+                if center_offset > 0:
+                    msg = "Center Offset: {:.0f} cm Left"
+                else:
+                    msg = "Center Offset: {:.0f} cm Right"
+                off_str = msg.format (abs(center_offset * 100))
+        
+        cv2.putText(self.img_lane_area, off_str, (50, 100), self.font, self.scale, self.color, self.thickness)
+        
+        return
+    
+    def compose(self, img_undistorted, unwarped_lanes, rad, off):
+        
+        self.blendImages(img_undistorted, unwarped_lanes)
+        
+        self.putRadius(rad)
+        self.putCenterOffset(off)
+        
+        return self.img_lane_area
+```
+
+The lane area, radius of curvature, center offset, and the original image are combined to compose the final image. 
+
+![](output_images/wup_compose.png)
+
+## The Pipeline Overview
+The pipeline processes each frame of the road video as an individual image by performing the following functions mentioned in the previous sections:
+- Distortion correction that reduces apparent curvature of straight lines
+- Image enhancement that detects edges detection and transforms color values
+- Image transformation that results in a top down view of road
+- Lane area identification that identifies pixels belonging road lanes
+- Another image transformation that restores the top-down view of the lane area to the original perspective
+- Composing the original undistorted image with lane area, radius of curvature, and center offset
+
+It uses a `controller` to coordinate and sequence the various components of the pipeline:
+
+```
+###
+### Code location: alf_con.py 
+###
+
+class Controller:
+
+    ...
+    
+    def processImg(self, img):
+    
+        ...
+        
+        srch_only           = (self.stage == 3)
+        img_undistorted     = self.cam.undistort(img)
+        binary              = self.enh.enhance(img_undistorted)    
+        binary_warped       = self.war.warpPerspective(binary)
+        lane_area, rad, off = self.alf.paintLaneArea(binary_warped, srch_only)
+        unwarped_lanes      = self.war.unwarpPerspective(lane_area)
+        final_img           = self.hud.compose(img_undistorted, unwarped_lanes, rad, off)
+        
+        ...
+        
+```
+
+### Project Video
+
+The pipeline appears to have succesfully identified the lane area and is located here in the `output_images` folder with filename `project_video.mp4`: [output_images/project_video.mp4](./output_images/project_video.mp4)
+
+![](output_images/wup_project_video.png)
+
+### Pipeline Struggles, and Completes Challenge Video...
+The pipeline also appears to have succesfully worked on the challenge video. The output is located here: [output_images/challenge_video.mp4](output_project/challenge_video.mp4)
+
+![](output_images/wup_challenge_video.png)
+
+### ...but Fails Miserably on Harder Challenge Video
+The tight curves, brush and trees on either side of the road, dashboard glare, varied lighting conditions, and traffic were some of the challenges that prevented the pipeline from consistently detecting the lanes in this video:  [output_images/challenge_video.mp4](output_project/challenge_video.mp4)
+
+![](output_images/wup_harder_challenge_video.png)
+
+## Limitations, Issues, Challenges
+- Varied lighting conditions made it a challenge to find good HSV values that would help the pipeline detect lanes in all frames.
+- Dashboard glare detrimentally affects performance
+- Camera lens aperture detrimentally changes affects performance (aperture appears to change from shadow area to light area)
+- There is no universal set of pipeline parameters. The pipeline parameters are tuned to a specific video. So the pipeline parameters for one video may not work on another.
+- Pipeline will fail on sudden, tight curves
+- Dried brush on side of road looks like yellow lane. 
+- Guradrail on side of road looks like white lane
+
+## Areas of Improve
+- Investigate use of CNN/YOLO to identify lane and edges of lane (and traffic!).
+- Identify center of road instead of lane markers.
+- Dynamically adjust pipeline parameters. Perhaps take the histogram of the bottom half of frame and stretch the HSV values to achieve better color, light and shadow separation.
+- Use some kind of A* search for lane pixels where search area is biased in direction of where more pixels are located.
+- Sensor-related: Use of a polarizing filter on camera to help with glare. Use constant aperture (don't go full auto on camera); mount camera on front of car sensor improvements; use lens hood
