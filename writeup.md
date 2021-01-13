@@ -836,7 +836,7 @@ Class Controller:
 
 ### Pipeline Control and Sequencing
 
-A `controller` coordinates and sequences the various components of the pipeline in the main processing methond `Controller.processImsg()`:
+A `controller` coordinates and sequences the various components of the pipeline in the main processing methond `Controller.processImg()`:
 
 ```python
 ###
