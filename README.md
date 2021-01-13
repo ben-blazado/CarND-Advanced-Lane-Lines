@@ -14,7 +14,7 @@ This is a Udacity Self-Driving Car NanoDegree project submission that uses the f
 Clone or fork this repository.
 
 ## Usage
-Indented user is the Udacity evaluator for this project. This project is intended to be used in a Jupyter Notebook. Open `alf.ipynb` for examples of usage.
+Intended user is the Udacity evaluator for this project. It is intended to be used in a Jupyter Notebook. Open `alf.ipynb` for examples of usage.
 
 ## Files
 ### Project Files
@@ -30,13 +30,14 @@ Indented user is the Udacity evaluator for this project. This project is intende
   - `alf_utils.py`: logging and demonstration functions
  
 ### Other files 
+- `alf.ipynb`: jupyter notebook for example of using project and demonstrations of important functions
 - output_images folder:
   - `wup\_\*.png`: images used in writeup
   - `project_video.mp4`: project video for submission 
   - `challenge_video.pm4`: pipeline worked on challege video too
   - `harder_challenge_video.mp4`: pipeline failed on this harder challenge video
+  - `out\_\*\_video_.mp4` : videos processed in the examples in alf.ipynb
   - `straight_lines1-undist.jpg`: image used to find src points in perspective transformation
-- `alf.ipynb`: jupyter notebook for example of using project
 - `sandbox.ipynb`: jupyter notebook for testing code
 - `sketch.drawio`: UML sketch of components; requires [diagrams.net](https://www.diagrams.net/) to view; does not reflect current state of components
 - `adv_lane_fine.log`: debug log of project
