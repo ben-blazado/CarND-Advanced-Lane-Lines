@@ -159,7 +159,26 @@ class Controller:
         
         return
         
+    def restart(self):
+        '''
+        Reinitializes the lane finder.
         
+        Notes:
+        - Call before processing a new video with same controller instance.
+        = Ensures line history is cleared and won't affect findiong new lanes
+        '''
+    
+        self.alf  = alf_llg.AdvancedLaneFinder()
+        
+        self.logger.info("Restarted.")
+        
+        return
+        
+        
+    
+        
+        
+    
         
     
     

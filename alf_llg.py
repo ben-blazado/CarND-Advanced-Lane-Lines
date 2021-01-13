@@ -706,13 +706,10 @@ class LaneLineFinder:
     - paint
     """
     
-    def __init__(self, buffer_size=180):
+    def __init__(self):
         '''
         Initlalizes LaneLineFinder.
         
-        Params:
-        - buffer_size: number of a, b, c line-coefficients to keep; default to 180 
-        for 3 secs of video assuming 60fps; 6 secs of video if 30fps
         '''
         
         self.logger = logging.getLogger("LaneLineFinder " + str(id(self))[-4:])
@@ -722,6 +719,11 @@ class LaneLineFinder:
         
         # x value where sliding window starts its search
         self.x_start       = None
+        
+        # x coordinate of middle of image
+        # used to help find start x coordinate for sliding windows
+        # and to check if the base of the line has crossed the center
+        self.mid_x = None
         
         # nonzero points of road image
         self.image_points  = None
@@ -865,8 +867,9 @@ class LaneLineFinder:
         # TODO: whatif for x_lane_points, y_lane_points = None, None
         
         self.lane_line.fit(x_lane_points, y_lane_points)
-        self.use_linear_window = self.lane_line.smooth()
+        smooth_good = self.lane_line.smooth()
         self.lane_line.generateXY(img_ht=self.binary_warped.shape[0])
+        self.use_linear_window = self.baseXGood() and smooth_good
         
         return 
     
@@ -968,8 +971,8 @@ class LeftLaneLineFinder(LaneLineFinder):
         histogram = np.sum(bottom_half, axis=0)
 
         # search only **left** half of histogram
-        mid_x = histogram.shape[0] // 2
-        self.x_start = np.argmax(histogram[:mid_x])
+        self.mid_x = histogram.shape[0] // 2
+        self.x_start = np.argmax(histogram[:self.mid_x])
         
         return
         
@@ -978,6 +981,15 @@ class LeftLaneLineFinder(LaneLineFinder):
         Returns RGB yellow for left lane.
         '''
         return [255, 255, 0]
+        
+    def baseXGood(self):
+        '''
+        Returns true if the base of the line is on the left side
+        '''
+        if self.baseX() is not None:
+            return self.baseX() < self.mid_x
+        else:
+            return False
     
     
 class RightLaneLineFinder(LaneLineFinder):
@@ -994,8 +1006,8 @@ class RightLaneLineFinder(LaneLineFinder):
         histogram = np.sum(bottom_half, axis=0)
 
         # search only **right** half of histogram
-        mid_x = histogram.shape[0] // 2
-        self.x_start = mid_x + np.argmax(histogram[mid_x:])
+        self.mid_x = histogram.shape[0] // 2
+        self.x_start = self.mid_x + np.argmax(histogram[self.mid_x:])
         
         return
         
@@ -1004,8 +1016,16 @@ class RightLaneLineFinder(LaneLineFinder):
         Returns RGB blue for right lane.
         '''
         return [0,0,255]
-    
-    
+        
+    def baseXGood(self):
+        '''
+        Returns true if the base of the line is on the right side
+        '''
+        if self.baseX() is not None:
+            return self.mid_x <= self.baseX()
+        else:
+            return False       
+        
 class AdvancedLaneFinder:
     '''
     Manages a left and right lane finder to find lanes in a road image
@@ -1020,6 +1040,11 @@ class AdvancedLaneFinder:
     '''
     
     def __init__(self):
+        
+        self.logger = logging.getLogger("AdvancedLaneFinder")
+        
+        self.left_lane_line_finder  = LeftLaneLineFinder()
+        self.right_lane_line_finder = RightLaneLineFinder()
         
         self.logger = logging.getLogger("AdvancedLaneFinder")
         

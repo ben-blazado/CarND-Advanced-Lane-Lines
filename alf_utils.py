@@ -27,6 +27,8 @@ def init_logging():
     Initializes logging for this project.
     '''
     
+    global utils_logger
+    
     #--- refs: code taken from: https://docs.python.org/3/howto/logging-cookbook.html
     #--- https://stackoverflow.com/a/9321890
     #--- https://stackoverflow.com/a/56366848   to clear any existing loggers
@@ -57,6 +59,9 @@ def init_logging():
     
 def shutdown_logging():
 
+    global utils_logger
+
+    utils_logger.info("Logging shutdown.")
     for handler in logging.root.handlers[:]:
         handler.close()
         logging.root.removeHandler(handler)
@@ -134,11 +139,12 @@ def demoCameraCalibration():
     return
     
 
-def demoEnhance(img):
+def demoEnhance(filename):
     '''
     Shows before and after image of edge and color enhancement.
     '''
 
+    img = plt.imread(filename)
     
     enh = alf_enh.Enhancer()
     enh.setParams(5, 76, 96, 30, 202)
@@ -158,10 +164,12 @@ def demoEnhance(img):
     return    
     
 
-def demoWarpImage(img):
+def demoWarpImage(filename):
     '''
     Shows before and after image of image perspective transformation.
     '''
+
+    img = plt.imread(filename)
 
     cam = alf_cam.Camera()
     cam.calibrate()
@@ -189,10 +197,12 @@ def demoWarpImage(img):
     return
         
 
-def demoLaneSearch(img):
+def demoLaneSearch(filename):
     '''
     Shows sliding and linear windows search areas and lane areas.
     '''
+
+    img = plt.imread(filename)
 
     cam = alf_cam.Camera()
     cam.calibrate()
@@ -229,10 +239,12 @@ def demoLaneSearch(img):
     
     return
     
-def demoCompose(img):
+def demoCompose(filename):
     '''
     Shows original and final road image with lane areas annotated
     '''
+
+    img = plt.imread(filename)
 
     cam = alf_cam.Camera()
     cam.calibrate()

@@ -23,7 +23,7 @@ Implement a video processing pipeline that detects road lanes.
 - [Radius of Curvature and Center Offset](#radius-of-curvature-and-center-offset)
   - [Scaling Line Coefficients to Real World](#scaling-line-coefficients-to-real-world)
   - [Center Offset](#center-offset)
-- [Final Image composition](#final-image-composition)
+- [Final Image Composition](#final-image-composition)
 - [The Pipeline](#the-pipeline)
   - [Setting Parameters](#setting-parameters)
   - [Pipeline Control and Sequencing](#pipeline-control-and-sequencing)
@@ -629,7 +629,7 @@ class AdvancedLaneFinder:
 
 ```
 
-## Final Image composition
+## Final Image Composition
 
 Because the lane area is in the top down perspective, the `Controller` reuses the `Warper` component to unwarp the lane area. 
 
