@@ -20,7 +20,7 @@ Intended user is the Udacity evaluator for this project. It is intended to be us
 ### Project Files
 - `writeup.md`: writeup of project for Udacity evaluator; includes images of pipeline stages
 - `output_images/project_video.mp4`: project video for submission
-- `alf\_\*.py` files: python code for project
+- `alf_*.py` files: python code for project
   - `alf_con.py`: main controller for sequencing pipeline stages
   - `alf_cam.py`: camera for calibration and distortion correction
   - `alf_enh.py`: enhancer for edge detection and HSV color transformation
@@ -32,11 +32,11 @@ Intended user is the Udacity evaluator for this project. It is intended to be us
 ### Other files 
 - `alf.ipynb`: jupyter notebook for example of using project and demonstrations of important functions
 - output_images folder:
-  - `wup\_\*.png`: images used in writeup
+  - `wup_*.png`: images used in writeup
   - `project_video.mp4`: project video for submission 
-  - `challenge_video.pm4`: pipeline worked on challege video too
+  - `challenge_video.pm4`: pipeline worked on challenge video too
   - `harder_challenge_video.mp4`: pipeline failed on this harder challenge video
-  - `out\_\*\_video_.mp4` : videos processed in the examples in alf.ipynb
+  - `out_*_video_.mp4` : videos processed in the examples in alf.ipynb; prevents overwriting videos for submission
   - `straight_lines1-undist.jpg`: image used to find src points in perspective transformation
 - `sandbox.ipynb`: jupyter notebook for testing code
 - `sketch.drawio`: UML sketch of components; requires [diagrams.net](https://www.diagrams.net/) to view; does not reflect current state of components
