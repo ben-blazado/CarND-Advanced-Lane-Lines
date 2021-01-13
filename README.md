@@ -26,7 +26,7 @@ Intended user is the Udacity evaluator for this project. It is intended to be us
   - `alf_enh.py`: enhancer for edge detection and HSV color transformation
   - `alf_war.py`: warper for perpective transformation
   - `alf_llg.py`: lane finders, sliding and linear window search areas, and line to find and annotate lanes
-  - `alf_hud.py`: heads up display (simulated) for composing final image with lare area
+  - `alf_hud.py`: heads up display (simulated) for composing final image with lane area
   - `alf_utils.py`: logging and demonstration functions
  
 ### Other files 
