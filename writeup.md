@@ -870,12 +870,12 @@ The pipeline appears to have succesfully identified the lane area and is located
 ![](output_images/wup_project_video.png)
 
 ### Pipeline Struggles with, but Completes, Challenge Video...
-The pipeline also appears to have succesfully worked on the challenge video. The output is located here: [output_images/challenge_video.mp4](output_project/challenge_video.mp4)
+The pipeline also appears to have succesfully worked on the challenge video. The output is located here: [output_images/challenge_video.mp4](./output_project/challenge_video.mp4)
 
 ![](output_images/wup_challenge_video.png)
 
 ### ...and Fails Miserably on Harder Challenge Video
-The tight curves, brush and trees on either side of the road, dashboard glare, varied lighting conditions, and traffic were some of the challenges that prevented the pipeline from consistently detecting the lanes in the hard challenge video:  [output_images/challenge_video.mp4](output_project/challenge_video.mp4)
+The tight curves, brush and trees on either side of the road, dashboard glare, varied lighting conditions, and traffic were some of the challenges that prevented the pipeline from consistently detecting the lanes in the hard challenge video:  [output_images/challenge_video.mp4](./output_project/harder_challenge_video.mp4)
 
 ![](output_images/wup_harder_challenge_video.png)
 
